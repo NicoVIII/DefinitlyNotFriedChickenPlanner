@@ -99,7 +99,7 @@ let generateGroundAppliances (random: Random) (config: GenerationConfig) (room: 
         appliances.Add appliance
 #if DEBUG
         // Debug: Check, if appliances are still valid
-        match validateAppliancePlacement room (Seq.toList appliances) with
+        match validateRoomLayout room (Set.ofSeq appliances) with
         | Ok() -> ()
         | Error error -> printfn "[DEBUG] Generated invalid room with error: %A" error
 #endif
@@ -128,23 +128,37 @@ let generateOverheadLight () =
     }
 
 let generateOverheadAppliances (random: Random) (config: GenerationConfig) (room: Room) : Appliance list =
-    let width, height = room
+    let roomCoords = Room.generateCoords room
+    let appliances = ResizeArray<Appliance>()
 
     // Generate some random overhead appliances for demonstration
-    [
-        for x in 0 .. width - 1 do
-            for y in 0 .. height - 1 do
-                if random.NextDouble() < config.chanceForOverhead then
-                    yield {
-                        applianceType = generateOverheadLight ()
-                        coordinate = { x = x; y = y }
-                    }
-    ]
+    for coord in roomCoords do
+        if random.NextDouble() < config.chanceForOverhead then
+            appliances.Add {
+                applianceType = generateOverheadLight ()
+                coordinate = coord
+            }
+#if DEBUG
+            // Debug: Check, if appliances are still valid
+            match validateRoomLayout room (Set.ofSeq appliances) with
+            | Ok() -> ()
+            | Error error -> printfn "[DEBUG] Generated invalid room with error: %A" error
+#endif
+    appliances |> Seq.toList
 
-let generateAppliances (random: Random) (room: Room) : Appliance list =
+let generateRoomLayout (random: Random) (room: Room) : RoomLayout =
     let config = generateGenerationConfig random
 
-    [
-        yield! generateGroundAppliances random config room
-        yield! generateOverheadAppliances random config room
-    ]
+    let roomLayout =
+        [
+            yield! generateGroundAppliances random config room
+            yield! generateOverheadAppliances random config room
+        ]
+        |> Set.ofList
+#if DEBUG
+    // Debug: Check, if appliances are still valid
+    match validateRoomLayout room roomLayout with
+    | Ok() -> ()
+    | Error error -> printfn "[DEBUG] Generated invalid room with error: %A" error
+#endif
+    roomLayout

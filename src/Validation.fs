@@ -36,8 +36,9 @@ let validateCoordinate room (coordinate: Coordinate) =
             return! Error InvalidCoordinate
     }
 
-let validateAppliancePlacement (room: Room) (appliances: Appliance list) : Result<unit, PlacementValidationError> =
+let validateRoomLayout (room: Room) (roomLayout: RoomLayout) : Result<unit, PlacementValidationError> =
     let width, height = room
+    let appliances = Set.toList roomLayout
 
     let checkForDoublePlacement appliances =
         result {
@@ -119,9 +120,7 @@ let validateAppliancePlacement (room: Room) (appliances: Appliance list) : Resul
 let calculateTileDistance (a: Coordinate) (b: Coordinate) : int<Tile> =
     abs (a.x - b.x) + abs (a.y - b.y) |> (*) 1<Tile>
 
-let calculateMeasurements (data: CalculationData) =
-    let room, appliances = data
-
+let calculateMeasurements (room: Room) (roomLayout: RoomLayout) =
     let clipToBounds measurements = {
         heat = measurements.heat |> max -100<Heat> |> min 100<Heat>
         humidity = measurements.humidity |> max -100<Humidity> |> min 100<Humidity>
@@ -133,7 +132,8 @@ let calculateMeasurements (data: CalculationData) =
         Array2D.create<Measurements> (fst room) (snd room) defaultMeasurements
 
     let emitters =
-        appliances
+        roomLayout
+        |> Set.toList
         |> List.choose (function
             | {
                   applianceType = Emitter emitter
@@ -178,7 +178,7 @@ let calculateMeasurements (data: CalculationData) =
 
     measurementMap |> Array2D.map clipToBounds
 
-let validateGrowboxNeeds (appliances: Appliance list) (measurements: Measurements[,]) =
+let validateGrowboxNeeds (roomLayout: RoomLayout) (measurements: Measurements[,]) =
     let checkGrowbox (growbox: Growbox) (coordinate: Coordinate) =
         let minMeasurements = growbox.growboxType.minMeasurements
         let maxMeasurements = growbox.growboxType.maxMeasurements
@@ -208,7 +208,8 @@ let validateGrowboxNeeds (appliances: Appliance list) (measurements: Measurement
         then
             failwithf "Growbox at %A has invalid water %A." coordinate measurement.water
 
-    appliances
+    roomLayout
+    |> Set.toList
     |> List.choose (function
         | {
               applianceType = Growbox growbox
@@ -217,12 +218,12 @@ let validateGrowboxNeeds (appliances: Appliance list) (measurements: Measurement
         | _ -> None)
     |> List.iter (fun (growbox, coordinate) -> checkGrowbox growbox coordinate)
 
-let validate room appliances =
+let validate room roomLayout =
     try
         result {
-            do! validateAppliancePlacement room appliances |> Result.mapError Placement
-            let measurements = (room, appliances) |> calculateMeasurements
-            validateGrowboxNeeds appliances measurements
+            do! validateRoomLayout room roomLayout |> Result.mapError Placement
+            let measurements = calculateMeasurements room roomLayout
+            validateGrowboxNeeds roomLayout measurements
         }
     with _ ->
         Error Unknown

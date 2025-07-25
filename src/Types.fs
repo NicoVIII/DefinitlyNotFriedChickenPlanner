@@ -24,6 +24,12 @@ type Dollar
 [<Measure>]
 type Hour
 
+[<Measure>]
+type ScoreTier1
+
+[<Measure>]
+type ScoreTier2
+
 // Types
 type Coordinate = { x: int; y: int }
 
@@ -69,6 +75,8 @@ type Appliance = {
     applianceType: ApplianceType
     coordinate: Coordinate
 }
+
+type RoomLayout = Set<Appliance>
 
 type Room = int * int
 

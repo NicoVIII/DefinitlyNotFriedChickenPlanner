@@ -3,10 +3,12 @@ module DefinitlyNotFriedChickenPlanner.Optimisation
 open System
 open Validation
 
-let optimiseEmitterCost (random: Random) (room: Room) (appliances: Appliance list) : Appliance list =
+let optimiseEmitterCost (random: Random) (room: Room) (roomLayout: RoomLayout) : RoomLayout =
     // We check, if the appliances are valid
-    if validate room appliances |> Result.isError then
+    if validate room roomLayout |> Result.isError then
         failwith "Invalid appliances for optimisation"
+
+    let appliances = roomLayout |> Set.toList
 
     // To simplify changing the emitters, we first collect them all via coordinates and overhead
     let mutable emitters =
@@ -26,7 +28,7 @@ let optimiseEmitterCost (random: Random) (room: Room) (appliances: Appliance lis
             | _ -> true)
             appliances
 
-    let getAppliances emitterMap =
+    let getRoomLayout emitterMap =
         rest
         @ (emitterMap
            |> Map.toList
@@ -34,6 +36,7 @@ let optimiseEmitterCost (random: Random) (room: Room) (appliances: Appliance lis
                applianceType = Emitter emitterType
                coordinate = coord
            }))
+        |> Set.ofList
 
     let mutable remainingEmitters = emitters |> Map.keys |> List.ofSeq
 
@@ -84,7 +87,7 @@ let optimiseEmitterCost (random: Random) (room: Room) (appliances: Appliance lis
         // We reduce the emitter until it is no longer valid or we removed it
         while isValid && not removedEmitter do
             newEmitters <- reduce ()
-            isValid <- getAppliances newEmitters |> validate room |> Result.isOk
+            isValid <- getRoomLayout newEmitters |> validate room |> Result.isOk
 
             if isValid then
                 emitters <- newEmitters
@@ -97,4 +100,4 @@ let optimiseEmitterCost (random: Random) (room: Room) (appliances: Appliance lis
         // And now we remove the current key from the list
         remainingEmitters <- remainingEmitters |> List.filter ((<>) key)
 
-    getAppliances emitters
+    getRoomLayout emitters

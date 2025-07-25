@@ -2,17 +2,18 @@ module DefinitlyNotFriedChickenPlanner.Scoring
 
 open Microsoft.FSharp.Core.LanguagePrimitives
 
-let countGrowboxes (appliances: Appliance list) : int =
-    appliances
-    |> List.filter (function
+let countGrowboxes (roomLayout: RoomLayout) : int =
+    roomLayout
+    |> Set.filter (function
         | { applianceType = Growbox _ } -> true
         | _ -> false)
-    |> List.length
+    |> Set.count
 
 let inline floatWUnit (value: int<'a>) : float<'a> = float value |> FloatWithMeasure<'a>
 
-let calculateHourlyCost (appliances: Appliance list) : float =
-    appliances
+let calculateHourlyCost (roomLayout: RoomLayout) =
+    roomLayout
+    |> Set.toList
     |> List.choose (function
         | { applianceType = Emitter emitter } -> Some emitter
         | _ -> None)
@@ -22,12 +23,9 @@ let calculateHourlyCost (appliances: Appliance list) : float =
         | Humidifier value -> Config.humidity.cost * floatWUnit value
         | Light value -> Config.light.cost * floatWUnit value
         | Sprinkler value -> Config.water.cost * floatWUnit value)
-    |> (*) 1.0<Hour / Dollar>
 
-let calculateApplianceScore (appliances: Appliance list) =
-    let growboxCount = countGrowboxes appliances
-    let cost = calculateHourlyCost appliances * -1.0
+let calculateScoreTier1 roomLayout =
+    countGrowboxes roomLayout * 1<ScoreTier1>
 
-    // Score is simply the number of growboxes for now
-    // This can be extended to include more complex scoring logic
-    growboxCount, cost
+let calculateScoreTier2 roomLayout =
+    calculateHourlyCost roomLayout * -1.0<ScoreTier2 * Hour / Dollar>

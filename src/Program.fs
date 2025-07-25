@@ -10,6 +10,7 @@ open Optimisation
 [<EntryPoint>]
 let main args =
     let room = 5, 5
+    let optimizationIterations = 100
 
     // Read the first arg as iteration count if provided, otherwise use default
     let defaultIterations = 1000
@@ -35,77 +36,63 @@ let main args =
     let startTime = System.DateTime.Now
     let random = System.Random seed
 
-    let mutable bestAppliancesList = []
-    let mutable score = 0, 0.0
-    let mutable validRooms = 0
-    let mutable validationErrors = Map.empty<ValidationError, uint>
+    // Generate room layouts and filter those, that are not valid
+    let roomLayouts =
+        seq { for _ in 1..iterations -> generateRoomLayout random room }
+        |> Seq.filter (fun layout -> validate room layout |> Result.isOk)
+        |> Seq.cache
 
-    for _ in 1..iterations do
-        let appliances = generateAppliances random room
+    let validRooms = Seq.length roomLayouts
 
-        match validate room appliances with
-        | Ok() ->
-            validRooms <- validRooms + 1
+    // Calculate tier 1 score
+    let roomLayoutsWithScoreTier1 =
+        roomLayouts
+        |> Seq.map (fun layout -> layout, calculateScoreTier1 layout)
+        |> Seq.cache
 
-            let newScore = calculateApplianceScore appliances
+    let scoreTier1Max = roomLayoutsWithScoreTier1 |> Seq.map snd |> Seq.max
 
-            match bestAppliancesList, score with
-            | [], _ ->
-                // If this is the first valid appliance configuration, we optimize it and set it as best
-                let optimizedAppliances = optimiseEmitterCost random room appliances
-                let optimizedScore = calculateApplianceScore optimizedAppliances
-                bestAppliancesList <- [ optimizedAppliances ]
-                score <- optimizedScore
-            | _, (currentGrowboxCount, currentCost) ->
-                let newGrowboxCount, _ = newScore
+    let optimizedRoomLayoutsWithScoreTier2 =
+        roomLayoutsWithScoreTier1
+        // We only keep the room layout with the best tier 1 score
+        |> Seq.filter (fun (_, scoreTier1) -> scoreTier1 = scoreTier1Max)
+        |> Seq.map fst
+        // We optimize the remaining room layouts for tier 2 score, but because optimization has a random component,
+        // we run it multiple times to find the best configuration
+        |> Seq.collect (fun appliances ->
+            seq {
+                for _ in 1..optimizationIterations do
+                    yield optimiseEmitterCost random room appliances
+            })
+        // And we remove those, that are identical
+        |> Seq.distinct
+        // For those we calculate the tier 2 score
+        |> Seq.map (fun appliances -> appliances, calculateScoreTier2 appliances)
+        |> Seq.cache
 
-                if newGrowboxCount < currentGrowboxCount then
-                    // This room is clearly worse, skip it
-                    ()
-                else
-                    // This room has a chance to be better, therefore we optimize it
-                    let optimizedAppliances = optimiseEmitterCost random room appliances
-                    let optimizedScore = calculateApplianceScore optimizedAppliances
-                    let newGrowboxCount, optimizedCost = optimizedScore
+    let scoreTier2Max = optimizedRoomLayoutsWithScoreTier2 |> Seq.map snd |> Seq.max
 
-                    if
-                        newGrowboxCount > currentGrowboxCount
-                        || newGrowboxCount = currentGrowboxCount && optimizedCost > currentCost
-                    then
-                        bestAppliancesList <- [ optimizedAppliances ]
-                        score <- optimizedScore
-                    elif optimizedScore = score then
-                        // If the score is equal, add to the list of best appliances
-                        bestAppliancesList <- optimizedAppliances :: bestAppliancesList
-
-        | Error error ->
-            // Increase amount in map by one
-            validationErrors <- Map.change error (Option.defaultValue 0u >> (+) 1u >> Some) validationErrors
+    let bestRoomLayouts =
+        optimizedRoomLayoutsWithScoreTier2
+        // We only keep the room layouts with the best tier 2 score
+        |> Seq.filter (fun (_, scoreTier2) -> scoreTier2 = scoreTier2Max)
+        |> Seq.map fst
+        |> Seq.cache
 
     let endTime = System.DateTime.Now
 
-    match bestAppliancesList with
-    | [] -> printfn "No valid appliance configuration found."
-    | _ ->
-        List.iter (printAppliances room) bestAppliancesList
-        let growboxCount, cost = score
+    if Seq.isEmpty bestRoomLayouts then
+        printfn "No valid appliance configuration found."
+    else
+        Seq.iter (printRoomLayout room) bestRoomLayouts
 
         printfn
             "Found %i valid configurations with %i growboxes and cost %.2f per hour"
-            (List.length bestAppliancesList)
-            growboxCount
-            (cost * -1.)
+            (Seq.length bestRoomLayouts)
+            scoreTier1Max
+            (scoreTier2Max * -1.)
 
     printfn "Total time taken: %A" (endTime - startTime)
     printfn "Room generation completed with %i (%i%%) valid rooms." validRooms (validRooms * 100 / iterations)
-
-#if DEBUG
-    printfn "[DEBUG] Validation errors:"
-
-    validationErrors
-    |> Map.toSeq
-    |> Seq.sortByDescending snd
-    |> Seq.iter (fun (error, count) -> printfn "%4i - %A" count error)
-#endif
 
     0 // Return an integer exit code

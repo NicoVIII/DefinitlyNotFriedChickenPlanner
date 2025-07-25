@@ -18,13 +18,13 @@ let printMeasurements (measurements: Measurements[,]) =
     printfn "Water:"
     printGrid (fun m -> m.water)
 
-let printAppliances (room: Room) (appliances: Appliance list) =
+let printRoomLayout (room: Room) (roomLayout: RoomLayout) =
     let width, _ = room
     let roomCords = Room.generateCoords room
 
-    let printGrid (appliances: Appliance list) =
+    let printGrid (roomLayout: RoomLayout) =
         for coord in roomCords do
-            match appliances |> List.tryFind (fun a -> a.coordinate = coord) with
+            match roomLayout |> Set.toList |> List.tryFind (fun a -> a.coordinate = coord) with
             | Some appliance ->
                 match appliance.applianceType with
                 | Emitter emitter ->
@@ -48,8 +48,8 @@ let printAppliances (room: Room) (appliances: Appliance list) =
 
     printfn "Overhead:"
 
-    appliances
-    |> List.filter (function
+    roomLayout
+    |> Set.filter (function
         | {
               applianceType = Emitter { overhead = true }
           } -> true
@@ -58,8 +58,8 @@ let printAppliances (room: Room) (appliances: Appliance list) =
 
     printfn "Ground:"
 
-    appliances
-    |> List.filter (function
+    roomLayout
+    |> Set.filter (function
         | {
               applianceType = Emitter { overhead = true }
           } -> false
