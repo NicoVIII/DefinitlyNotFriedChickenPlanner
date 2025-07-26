@@ -1,17 +1,93 @@
 ﻿module DefinitlyNotFriedChickenPlanner.Program
 
+open System
+
 open Generation
 open Validation
 open Scoring
 open Printing
 open Optimisation
 
+[<AutoOpen>]
+module Config =
+    let room = 5, 5
+    let configGenerations = 10
+    let configsPerGeneration = 20
+    let roomsPerConfig = 100
+    let keepPercentage = 0.3
+    let mutatePercentage = keepPercentage * 2.
+    let randomPercentage = 1. - keepPercentage - mutatePercentage
+    let mutationStep = 5
+    let optimizationIterations = 100
+
+let generateGenerationConfigs (random: Random) x =
+    seq {
+        for _ in 1..x do
+            yield generateGenerationConfig random
+    }
+
+let mutateGenerationConfig (random: Random) (config: GenerationConfig) =
+    let factor = if random.Next 2 = 1 then 1 else -1
+    let mutation = factor * mutationStep
+
+    match random.Next 3 with
+    | 0 -> {
+        config with
+            chanceForGrowbox = config.chanceForGrowbox + mutation
+      }
+    | 1 -> {
+        config with
+            chanceForEmitter = config.chanceForEmitter + mutation
+      }
+    | _ -> {
+        config with
+            chanceForOverhead = config.chanceForOverhead + mutation
+      }
+
+let calculateGeneratorConfigScore (random: Random) (config: GenerationConfig) =
+    seq {
+        // We start with an element of score 0 to avoid errors
+        yield 0<ScoreTier1>
+
+        for _ in 1..roomsPerConfig do
+            let roomLayout = generateRoomLayout random room config
+
+            if validate room roomLayout |> Result.isOk then
+                yield calculateScoreTier1 roomLayout
+    }
+    |> Seq.groupBy id
+    |> Seq.maxBy fst
+    |> snd
+    |> Seq.sum
+
+let rec simulateGenerations (random: Random) iterations configSeq =
+    let configsToKeep =
+        configSeq
+        |> Seq.take (int (float configsPerGeneration * keepPercentage))
+        |> Seq.cache
+
+    let mutatedConfigs =
+        configsToKeep
+        // We mutate every config two times
+        |> Seq.collect (fun config -> [ config; config ])
+        |> Seq.map (mutateGenerationConfig random)
+
+    let newRandomConfigs =
+        generateGenerationConfigs random (int (float configsPerGeneration * mutatePercentage))
+
+    let nextGeneration =
+        configsToKeep
+        |> Seq.append (generateGenerationConfigs random (int (float configsPerGeneration * randomPercentage)))
+        |> Seq.sortByDescending (calculateGeneratorConfigScore random)
+
+    if iterations <= 1 then
+        nextGeneration
+    else
+        simulateGenerations random (iterations - 1) nextGeneration
+
 // Run code
 [<EntryPoint>]
 let main args =
-    let room = 5, 5
-    let optimizationIterations = 100
-
     // Read the first arg as iteration count if provided, otherwise use default
     let defaultIterations = 1000
 
@@ -23,22 +99,23 @@ let main args =
         else
             defaultIterations
 
-    // Use the second arg as seed if provided, otherwise generate a random seed
-    let seed =
-        if args.Length > 1 then
-            match System.Int32.TryParse(args.[1]) with
-            | true, value -> value
-            | _ -> System.Random().Next()
-        else
-            System.Random().Next()
+    let startTime = DateTime.Now
+    let seed = Random().Next()
+    let random = Random seed
+
+    // At first we use an evolutionary approach to find a fitting generation config
+    let generationConfig =
+        generateGenerationConfigs random configsPerGeneration
+        |> Seq.sortByDescending (calculateGeneratorConfigScore random)
+        |> simulateGenerations random configGenerations
+        |> Seq.head
 
     printfn "Generating appliances using seed %i for room size %A..." seed room
-    let startTime = System.DateTime.Now
-    let random = System.Random seed
+    printfn "Using generation config: %A" generationConfig
 
     // Generate room layouts and filter those, that are not valid
     let roomLayouts =
-        seq { for _ in 1..iterations -> generateRoomLayout random room }
+        seq { for _ in 1..iterations -> generateRoomLayout random room generationConfig }
         |> Seq.filter (fun layout -> validate room layout |> Result.isOk)
         |> Seq.cache
 

@@ -6,18 +6,17 @@ open Validation
 
 // Generation config
 type GenerationConfig = {
-    chanceForGrowbox: float
-    chanceForEmitter: float
-    chanceForOverhead: float
+    chanceForGrowbox: int
+    chanceForEmitter: int
+    chanceForOverhead: int
+// TODO: min/max values for emitters
+// TODO: optimization strategy (highest first, lowest first, outer first(?))
 }
 
 let generateGenerationConfig (random: Random) : GenerationConfig = {
-    // Ensure at least 10% chance
-    chanceForGrowbox = random.NextDouble() * 0.9 + 0.1
-    // Ensure at least 10% chance
-    chanceForEmitter = random.NextDouble() * 0.9 + 0.1
-    // Ensure at least 1% chance
-    chanceForOverhead = random.NextDouble() * 0.99 + 0.01
+    chanceForGrowbox = random.Next 21 * 5
+    chanceForEmitter = random.Next 21 * 5
+    chanceForOverhead = random.Next 21 * 5
 }
 
 // Helper for generation of rooms
@@ -59,7 +58,7 @@ let generateSprinkler (coord: Coordinate) =
 
 let generateGrowbox (random: Random) (coord: Coordinate) =
     let orientation =
-        match random.Next(0, 4) with
+        match random.Next 4 with
         | 0 -> North
         | 1 -> East
         | 2 -> South
@@ -107,7 +106,7 @@ let generateGroundAppliances (random: Random) (config: GenerationConfig) (room: 
 
     // Generate growboxes
     for coord in roomCoords do
-        if isFree coord && random.NextDouble() < config.chanceForGrowbox then
+        if isFree coord && random.Next 100 < config.chanceForGrowbox then
             let appliance, adjCord = generateGrowbox random coord
             // It is possible to generate invalid growboxes, we simply ignore those for now
             if isFree adjCord && validateCoordinate room adjCord |> Result.isOk then
@@ -116,7 +115,7 @@ let generateGroundAppliances (random: Random) (config: GenerationConfig) (room: 
 
     // Generate emitters
     for coord in roomCoords do
-        if isFree coord && random.NextDouble() < config.chanceForEmitter then
+        if isFree coord && random.Next 100 < config.chanceForEmitter then
             generateEmitter random coord |> addAppliance
 
     appliances |> Seq.toList
@@ -133,7 +132,7 @@ let generateOverheadAppliances (random: Random) (config: GenerationConfig) (room
 
     // Generate some random overhead appliances for demonstration
     for coord in roomCoords do
-        if random.NextDouble() < config.chanceForOverhead then
+        if random.Next 100 < config.chanceForOverhead then
             appliances.Add {
                 applianceType = generateOverheadLight ()
                 coordinate = coord
@@ -146,9 +145,7 @@ let generateOverheadAppliances (random: Random) (config: GenerationConfig) (room
 #endif
     appliances |> Seq.toList
 
-let generateRoomLayout (random: Random) (room: Room) : RoomLayout =
-    let config = generateGenerationConfig random
-
+let generateRoomLayout (random: Random) (room: Room) (config: GenerationConfig) : RoomLayout =
     let roomLayout =
         [
             yield! generateGroundAppliances random config room
