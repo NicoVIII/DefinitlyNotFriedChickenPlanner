@@ -1,4 +1,3 @@
-[<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.GenerationConfig.Generation
 
 open System
@@ -10,3 +9,8 @@ let generateGenerationConfig (random: Random) : GenerationConfig = {
     chanceForEmitter = random.Next 21 * 5
     chanceForOverhead = random.Next 21 * 5
 }
+
+let generateGenerationConfigs (random: Random) amount =
+    Seq.initInfinite (fun _ -> generateGenerationConfig random)
+    |> Seq.distinct
+    |> Seq.take amount

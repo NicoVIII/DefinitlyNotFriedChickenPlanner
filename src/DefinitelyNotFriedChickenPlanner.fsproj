@@ -9,13 +9,14 @@
     <Compile Include="Core/Room.fs" />
     <Compile Include="Core/RoomLayout.fs" />
     <Compile Include="Core/Config.fs" />
+    <Compile Include="Core/Helper/Seq.fs" />
     <Compile Include="Core/Modules/Room.fs" />
     <Compile Include="RoomLayout/Validation.fs" />
     <Compile Include="RoomLayout/Scoring.fs" />
     <Compile Include="RoomLayout/Optimisation.fs" />
     <Compile Include="RoomLayout/Generation.fs" />
     <Compile Include="RoomLayout/Printing.fs" />
-    <Compile Include="GenerationConfig/Generation.fs" />
+    <Compile Include="GenerationConfig/Generation.fs" /><Compile Include="GenerationConfig/Mutation.fs" /><Compile Include="GenerationConfig/Scoring.fs" /><Compile Include="GenerationConfig/Evolution.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

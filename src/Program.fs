@@ -8,83 +8,24 @@ open DefinitlyNotFriedChickenPlanner.RoomLayout.Scoring
 open DefinitlyNotFriedChickenPlanner.RoomLayout.Printing
 open DefinitlyNotFriedChickenPlanner.RoomLayout.Optimisation
 open DefinitlyNotFriedChickenPlanner.GenerationConfig
+open DefinitlyNotFriedChickenPlanner.GenerationConfig.Evolution
+open DefinitlyNotFriedChickenPlanner.GenerationConfig.Generation
+open DefinitlyNotFriedChickenPlanner.GenerationConfig.Mutation
+open DefinitlyNotFriedChickenPlanner.GenerationConfig.Scoring
 
 [<AutoOpen>]
-module Config =
+module ProgramConfig =
     let room = 5, 5
     let configGenerations = 10
-    let configsPerGeneration = 20
-    let roomsPerConfig = 100
-    let keepPercentage = 0.3
-    let mutatePercentage = keepPercentage * 2.
-    let randomPercentage = 1. - keepPercentage - mutatePercentage
-    let mutationStep = 5
     let optimizationIterations = 100
 
-let generateGenerationConfigs (random: Random) x =
-    seq {
-        for _ in 1..x do
-            yield generateGenerationConfig random
+    let simulationConfig = {
+        calculationConfig = { room = room; roomsPerConfig = 100 }
+        configsPerGeneration = 20
+        keepPercentage = 0.3
+        mutatePercentage = 0.6
+        mutationConfig = { mutationStep = 5 }
     }
-
-let mutateGenerationConfig (random: Random) (config: GenerationConfig) =
-    let factor = if random.Next 2 = 1 then 1 else -1
-    let mutation = factor * mutationStep
-
-    match random.Next 3 with
-    | 0 -> {
-        config with
-            chanceForGrowbox = config.chanceForGrowbox + mutation
-      }
-    | 1 -> {
-        config with
-            chanceForEmitter = config.chanceForEmitter + mutation
-      }
-    | _ -> {
-        config with
-            chanceForOverhead = config.chanceForOverhead + mutation
-      }
-
-let calculateGeneratorConfigScore (random: Random) (config: GenerationConfig) =
-    seq {
-        // We start with an element of score 0 to avoid errors
-        yield 0<ScoreTier1>
-
-        for _ in 1..roomsPerConfig do
-            let roomLayout = generateRoomLayout random room config
-
-            if validate room roomLayout |> Result.isOk then
-                yield calculateScoreTier1 roomLayout
-    }
-    |> Seq.groupBy id
-    |> Seq.maxBy fst
-    |> snd
-    |> Seq.sum
-
-let rec simulateGenerations (random: Random) iterations configSeq =
-    let configsToKeep =
-        configSeq
-        |> Seq.take (int (float configsPerGeneration * keepPercentage))
-        |> Seq.cache
-
-    let mutatedConfigs =
-        configsToKeep
-        // We mutate every config two times
-        |> Seq.collect (fun config -> [ config; config ])
-        |> Seq.map (mutateGenerationConfig random)
-
-    let newRandomConfigs =
-        generateGenerationConfigs random (int (float configsPerGeneration * mutatePercentage))
-
-    let nextGeneration =
-        configsToKeep
-        |> Seq.append (generateGenerationConfigs random (int (float configsPerGeneration * randomPercentage)))
-        |> Seq.sortByDescending (calculateGeneratorConfigScore random)
-
-    if iterations <= 1 then
-        nextGeneration
-    else
-        simulateGenerations random (iterations - 1) nextGeneration
 
 // Run code
 [<EntryPoint>]
@@ -100,16 +41,14 @@ let main args =
         else
             defaultIterations
 
+    // Setup
     let startTime = DateTime.Now
     let seed = Random().Next()
     let random = Random seed
 
     // At first we use an evolutionary approach to find a fitting generation config
     let generationConfig =
-        generateGenerationConfigs random configsPerGeneration
-        |> Seq.sortByDescending (calculateGeneratorConfigScore random)
-        |> simulateGenerations random configGenerations
-        |> Seq.head
+        simulateGenerations random simulationConfig configGenerations |> Seq.head
 
     printfn "Generating appliances using seed %i for room size %A..." seed room
     printfn "Using generation config: %A" generationConfig
@@ -157,7 +96,7 @@ let main args =
         |> Seq.map fst
         |> Seq.cache
 
-    let endTime = System.DateTime.Now
+    let endTime = DateTime.Now
 
     if Seq.isEmpty bestRoomLayouts then
         printfn "No valid appliance configuration found."
