@@ -2,11 +2,12 @@
 
 open System
 
-open Generation
-open Validation
-open Scoring
-open Printing
-open Optimisation
+open DefinitlyNotFriedChickenPlanner.RoomLayout.Generation
+open DefinitlyNotFriedChickenPlanner.RoomLayout.Validation
+open DefinitlyNotFriedChickenPlanner.RoomLayout.Scoring
+open DefinitlyNotFriedChickenPlanner.RoomLayout.Printing
+open DefinitlyNotFriedChickenPlanner.RoomLayout.Optimisation
+open DefinitlyNotFriedChickenPlanner.GenerationConfig
 
 [<AutoOpen>]
 module Config =

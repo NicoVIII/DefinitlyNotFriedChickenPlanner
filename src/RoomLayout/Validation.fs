@@ -1,6 +1,8 @@
-module DefinitlyNotFriedChickenPlanner.Validation
+module DefinitlyNotFriedChickenPlanner.RoomLayout.Validation
 
 open FsToolkit.ErrorHandling
+
+open DefinitlyNotFriedChickenPlanner
 
 // Types
 type PlacementValidationError =

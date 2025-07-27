@@ -4,15 +4,18 @@
     <TargetFramework>net9.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Types.fs" />
-    <Compile Include="Config.fs" />
-    
-    <Compile Include="Types/Room.fs" />
-    <Compile Include="Validation.fs" />
-    <Compile Include="Scoring.fs" />
-    <Compile Include="Optimisation.fs" />
-    <Compile Include="Generation.fs" />
-    <Compile Include="Printing.fs" />
+    <Compile Include="Core/Units.fs" />
+    <Compile Include="Core/GenerationConfig.fs" />
+    <Compile Include="Core/Room.fs" />
+    <Compile Include="Core/RoomLayout.fs" />
+    <Compile Include="Core/Config.fs" />
+    <Compile Include="Core/Modules/Room.fs" />
+    <Compile Include="RoomLayout/Validation.fs" />
+    <Compile Include="RoomLayout/Scoring.fs" />
+    <Compile Include="RoomLayout/Optimisation.fs" />
+    <Compile Include="RoomLayout/Generation.fs" />
+    <Compile Include="RoomLayout/Printing.fs" />
+    <Compile Include="GenerationConfig/Generation.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

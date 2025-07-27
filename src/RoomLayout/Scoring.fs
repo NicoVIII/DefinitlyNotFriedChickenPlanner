@@ -1,6 +1,8 @@
-module DefinitlyNotFriedChickenPlanner.Scoring
+module DefinitlyNotFriedChickenPlanner.RoomLayout.Scoring
 
 open Microsoft.FSharp.Core.LanguagePrimitives
+
+open DefinitlyNotFriedChickenPlanner
 
 let countGrowboxes (roomLayout: RoomLayout) : int =
     roomLayout

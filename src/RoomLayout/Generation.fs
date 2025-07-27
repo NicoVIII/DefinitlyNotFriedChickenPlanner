@@ -1,23 +1,9 @@
-module DefinitlyNotFriedChickenPlanner.Generation
+module DefinitlyNotFriedChickenPlanner.RoomLayout.Generation
 
 open System
 
+open DefinitlyNotFriedChickenPlanner
 open Validation
-
-// Generation config
-type GenerationConfig = {
-    chanceForGrowbox: int
-    chanceForEmitter: int
-    chanceForOverhead: int
-// TODO: min/max values for emitters
-// TODO: optimization strategy (highest first, lowest first, outer first(?))
-}
-
-let generateGenerationConfig (random: Random) : GenerationConfig = {
-    chanceForGrowbox = random.Next 21 * 5
-    chanceForEmitter = random.Next 21 * 5
-    chanceForOverhead = random.Next 21 * 5
-}
 
 // Helper for generation of rooms
 let generateHeater (coord: Coordinate) =

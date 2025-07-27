@@ -1,6 +1,8 @@
-module DefinitlyNotFriedChickenPlanner.Optimisation
+module DefinitlyNotFriedChickenPlanner.RoomLayout.Optimisation
 
 open System
+
+open DefinitlyNotFriedChickenPlanner
 open Validation
 
 let optimiseEmitterCost (random: Random) (room: Room) (roomLayout: RoomLayout) : RoomLayout =

@@ -1,4 +1,6 @@
-module DefinitlyNotFriedChickenPlanner.Printing
+module DefinitlyNotFriedChickenPlanner.RoomLayout.Printing
+
+open DefinitlyNotFriedChickenPlanner
 
 let printMeasurements (measurements: Measurements[,]) =
     let printGrid (getValue: Measurements -> int<'a>) =
