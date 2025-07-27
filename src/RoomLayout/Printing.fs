@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.RoomLayout.Printing
 
 open DefinitlyNotFriedChickenPlanner

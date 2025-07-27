@@ -6,6 +6,8 @@
   <ItemGroup>
   </ItemGroup>
   <ItemGroup>
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.2" />
     <PackageVersion Include="FsToolkit.ErrorHandling" Version="5.0.1" />
+    <PackageVersion Include="NicoVIII.RunHelpers" Version="1.0.0" />
   </ItemGroup>
 </Project>

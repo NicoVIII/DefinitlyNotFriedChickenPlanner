@@ -2,16 +2,8 @@
 
 open System
 
-open DefinitlyNotFriedChickenPlanner.RoomLayout.Generation
-open DefinitlyNotFriedChickenPlanner.RoomLayout.Validation
-open DefinitlyNotFriedChickenPlanner.RoomLayout.Scoring
-open DefinitlyNotFriedChickenPlanner.RoomLayout.Printing
-open DefinitlyNotFriedChickenPlanner.RoomLayout.Optimisation
+open DefinitlyNotFriedChickenPlanner.RoomLayout
 open DefinitlyNotFriedChickenPlanner.GenerationConfig
-open DefinitlyNotFriedChickenPlanner.GenerationConfig.Evolution
-open DefinitlyNotFriedChickenPlanner.GenerationConfig.Generation
-open DefinitlyNotFriedChickenPlanner.GenerationConfig.Mutation
-open DefinitlyNotFriedChickenPlanner.GenerationConfig.Scoring
 
 [<AutoOpen>]
 module ProgramConfig =
@@ -47,15 +39,15 @@ let main args =
     let random = Random seed
 
     // At first we use an evolutionary approach to find a fitting generation config
-    let generationConfig =
+    let genConfig =
         simulateGenerations random simulationConfig configGenerations |> Seq.head
 
     printfn "Generating appliances using seed %i for room size %A..." seed room
-    printfn "Using generation config: %A" generationConfig
+    printfn "Using generation config: %A" genConfig
 
     // Generate room layouts and filter those, that are not valid
     let roomLayouts =
-        seq { for _ in 1..iterations -> generateRoomLayout random room generationConfig }
+        seq { for _ in 1..iterations -> generateRoomLayout random room genConfig }
         |> Seq.filter (fun layout -> validate room layout |> Result.isOk)
         |> Seq.cache
 
@@ -79,7 +71,7 @@ let main args =
         |> Seq.collect (fun appliances ->
             seq {
                 for _ in 1..optimizationIterations do
-                    yield optimiseEmitterCost random room appliances
+                    yield optimizeEmitterCost genConfig.optimizationStrategy room appliances
             })
         // And we remove those, that are identical
         |> Seq.distinct

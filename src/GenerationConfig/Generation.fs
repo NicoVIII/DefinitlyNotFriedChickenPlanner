@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.GenerationConfig.Generation
 
 open System
@@ -5,9 +6,17 @@ open System
 open DefinitlyNotFriedChickenPlanner
 
 let generateGenerationConfig (random: Random) : GenerationConfig = {
-    chanceForGrowbox = random.Next 21 * 5
-    chanceForEmitter = random.Next 21 * 5
-    chanceForOverhead = random.Next 21 * 5
+    chances = {
+        forHeater = random.Next 21 * 5
+        forHumidifier = random.Next 21 * 5
+        forSprinkler = random.Next 21 * 5
+        forGrowbox = random.Next 21 * 5
+        forLight = random.Next 21 * 5
+    }
+    optimizationStrategy =
+        match random.Next 2 with
+        | 0 -> HighestFirst
+        | _ -> LowestFirst
 }
 
 let generateGenerationConfigs (random: Random) amount =

@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.RoomLayout.Generation
 
 open System
@@ -92,7 +93,7 @@ let generateGroundAppliances (random: Random) (config: GenerationConfig) (room: 
 
     // Generate growboxes
     for coord in roomCoords do
-        if isFree coord && random.Next 100 < config.chanceForGrowbox then
+        if isFree coord && random.Next 100 < config.chances.forGrowbox then
             let appliance, adjCord = generateGrowbox random coord
             // It is possible to generate invalid growboxes, we simply ignore those for now
             if isFree adjCord && validateCoordinate room adjCord |> Result.isOk then
@@ -101,8 +102,13 @@ let generateGroundAppliances (random: Random) (config: GenerationConfig) (room: 
 
     // Generate emitters
     for coord in roomCoords do
-        if isFree coord && random.Next 100 < config.chanceForEmitter then
-            generateEmitter random coord |> addAppliance
+        if isFree coord then
+            if random.Next 100 < config.chances.forSprinkler then
+                generateSprinkler coord |> addAppliance
+            elif random.Next 100 < config.chances.forHeater then
+                generateHeater coord |> addAppliance
+            elif random.Next 100 < config.chances.forHumidifier then
+                generateHumidifier coord |> addAppliance
 
     appliances |> Seq.toList
 
@@ -118,7 +124,7 @@ let generateOverheadAppliances (random: Random) (config: GenerationConfig) (room
 
     // Generate some random overhead appliances for demonstration
     for coord in roomCoords do
-        if random.Next 100 < config.chanceForOverhead then
+        if random.Next 100 < config.chances.forLight then
             appliances.Add {
                 applianceType = generateOverheadLight ()
                 coordinate = coord

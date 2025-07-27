@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.RoomLayout.Scoring
 
 open Microsoft.FSharp.Core.LanguagePrimitives
@@ -31,3 +32,10 @@ let calculateScoreTier1 roomLayout =
 
 let calculateScoreTier2 roomLayout =
     calculateHourlyCost roomLayout * -1.0<ScoreTier2 * Hour / Dollar>
+
+let nullScore = 0<ScoreTier1>, 0.<ScoreTier2>
+
+let calculateScore roomLayout =
+    let scoreTier1 = calculateScoreTier1 roomLayout
+    let scoreTier2 = calculateScoreTier2 roomLayout
+    scoreTier1, scoreTier2

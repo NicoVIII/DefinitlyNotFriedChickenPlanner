@@ -1,11 +1,12 @@
-module DefinitlyNotFriedChickenPlanner.RoomLayout.Optimisation
+[<AutoOpen>]
+module DefinitlyNotFriedChickenPlanner.RoomLayout.Optimization
 
 open System
 
 open DefinitlyNotFriedChickenPlanner
 open Validation
 
-let optimiseEmitterCost (random: Random) (room: Room) (roomLayout: RoomLayout) : RoomLayout =
+let optimizeEmitterCost strategy (room: Room) (roomLayout: RoomLayout) : RoomLayout =
     // We check, if the appliances are valid
     if validate room roomLayout |> Result.isError then
         failwith "Invalid appliances for optimisation"
@@ -43,20 +44,21 @@ let optimiseEmitterCost (random: Random) (room: Room) (roomLayout: RoomLayout) :
     let mutable remainingEmitters = emitters |> Map.keys |> List.ofSeq
 
     while not (List.isEmpty remainingEmitters) do
-        let index = List.length remainingEmitters |> random.Next
-        let key = remainingEmitters |> List.item index
+        let key =
+            match strategy with
+            | HighestFirst ->
+                remainingEmitters
+                |> List.maxBy (fun key -> Map.find key emitters |> Emitter.getValue)
+            | LowestFirst ->
+                remainingEmitters
+                |> List.minBy (fun key -> Map.find key emitters |> Emitter.getValue)
 
-        // We tune down the value until this is no longer valid
-        let mutable newEmitters = emitters
-        let mutable couldReduce = false
-        let mutable isValid = true
-        let mutable removedEmitter = false
-
-        let reduce () =
+        let reductionResult =
             Map.change
                 key
                 (Option.defaultWith (fun () -> failwith "Mapkey was missing")
                  >> (function
+                 // TODO: Use lenses to make this code more readable
                  | { emitterType = Heater temp } as emitter when temp > 1<Heat> ->
                      Some {
                          emitter with
@@ -81,25 +83,16 @@ let optimiseEmitterCost (random: Random) (room: Room) (roomLayout: RoomLayout) :
                  | { emitterType = Heater _ }
                  | { emitterType = Humidifier _ }
                  | { emitterType = Sprinkler _ }
-                 | { emitterType = Light _ } ->
-                     removedEmitter <- true
-                     None))
-                newEmitters
+                 | { emitterType = Light _ } -> None))
+                emitters
 
-        // We reduce the emitter until it is no longer valid or we removed it
-        while isValid && not removedEmitter do
-            newEmitters <- reduce ()
-            isValid <- getRoomLayout newEmitters |> validate room |> Result.isOk
-
-            if isValid then
-                emitters <- newEmitters
-                couldReduce <- true
-
-        // If we could reduce, we restart the list
-        if couldReduce then
+        if getRoomLayout reductionResult |> validate room |> Result.isOk then
+            // We could make a valid reduction, we therefore save it
+            emitters <- reductionResult
+            // And we allow all emitters to be chosen again
             remainingEmitters <- emitters |> Map.keys |> List.ofSeq
-
-        // And now we remove the current key from the list
-        remainingEmitters <- remainingEmitters |> List.filter ((<>) key)
+        else
+            // No success with this emitter, we therefore remove it from the list of possibilities
+            remainingEmitters <- remainingEmitters |> List.filter ((<>) key)
 
     getRoomLayout emitters

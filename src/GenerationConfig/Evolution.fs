@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.GenerationConfig.Evolution
 
 open System

@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.GenerationConfig.Mutation
 
 open System
@@ -12,20 +13,33 @@ let determineFactor (random: Random) value =
     elif random.Next 2 = 1 then 1
     else -1
 
-let mutateGenerationConfig (random: Random) mutConfig (config: GenerationConfig) =
-    let factor = if random.Next 2 = 1 then 1 else -1
+let mutateChance
+    (random: Random)
+    mutConfig
+    (fieldSelector: GenerationConfigChances -> int)
+    (fieldUpdater: int -> GenerationConfigChances -> GenerationConfigChances)
+    (config: GenerationConfig)
+    =
+    let value = fieldSelector config.chances
+    let factor = determineFactor random value
     let mutation = factor * mutConfig.mutationStep
 
-    match random.Next 3 with
-    | 0 -> {
+    {
         config with
-            chanceForGrowbox = config.chanceForGrowbox + mutation
-      }
-    | 1 -> {
-        config with
-            chanceForEmitter = config.chanceForEmitter + mutation
-      }
+            chances = config.chances |> fieldUpdater (value + mutation)
+    }
+
+let mutateGenerationConfig (random: Random) mutConfig (config: GenerationConfig) =
+    match random.Next 6 with
+    | 0 -> mutateChance random mutConfig _.forGrowbox (fun v c -> { c with forGrowbox = v }) config
+    | 1 -> mutateChance random mutConfig _.forHeater (fun v c -> { c with forHeater = v }) config
+    | 2 -> mutateChance random mutConfig _.forHumidifier (fun v c -> { c with forHumidifier = v }) config
+    | 3 -> mutateChance random mutConfig _.forSprinkler (fun v c -> { c with forSprinkler = v }) config
+    | 4 -> mutateChance random mutConfig _.forLight (fun v c -> { c with forLight = v }) config
     | _ -> {
         config with
-            chanceForOverhead = config.chanceForOverhead + mutation
+            optimizationStrategy =
+                match config.optimizationStrategy with
+                | HighestFirst -> LowestFirst
+                | LowestFirst -> HighestFirst
       }

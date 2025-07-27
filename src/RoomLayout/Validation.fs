@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.RoomLayout.Validation
 
 open FsToolkit.ErrorHandling

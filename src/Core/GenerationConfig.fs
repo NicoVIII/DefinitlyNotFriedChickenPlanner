@@ -1,10 +1,21 @@
 [<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.GenerationConfigTypes
 
+type OptimizationStrategy =
+    | HighestFirst
+    | LowestFirst
+// TODO: OuterFirst
+
+type GenerationConfigChances = {
+    forGrowbox: int
+    forHeater: int
+    forHumidifier: int
+    forLight: int
+    forSprinkler: int
+}
+
 type GenerationConfig = {
-    chanceForGrowbox: int
-    chanceForEmitter: int
-    chanceForOverhead: int
+    chances: GenerationConfigChances
+    optimizationStrategy: OptimizationStrategy
 // TODO: min/max values for emitters
-// TODO: optimization strategy (highest first, lowest first, outer first(?))
 }
