@@ -64,14 +64,15 @@ let optimizeEmitterCost strategy (room: Room) (roomLayout: RoomLayout) : RoomLay
         | [] -> ()
         | _ ->
             let key =
-                match strategy with
-                | HighestFirst ->
+                match remainingKeys, strategy with
+                | [ key ], _ -> key // Only one key left, we have to use it
+                | _, HighestFirst ->
                     remainingKeys
                     |> List.maxBy (fun key ->
                         validEmitterMap.[key]
                         |> Optic.get ApplianceOptic.emitterValue
                         |> Option.defaultWith (fun () -> failwithf "Expected Ok, but got Error"))
-                | LowestFirst ->
+                | _, LowestFirst ->
                     remainingKeys
                     |> List.minBy (fun key ->
                         validEmitterMap.[key]
@@ -83,11 +84,25 @@ let optimizeEmitterCost strategy (room: Room) (roomLayout: RoomLayout) : RoomLay
 
             // We check if the change is valid
             if getRoomLayout experimentalEmitterMap |> validateList room |> Result.isOk then
-                // Valid reduction, save it and restart with all keys
+                let remainingKeys =
+                    match strategy with
+                    | HighestFirst ->
+                        // Restart with all keys
+                        experimentalEmitterMap.Keys |> Seq.toList
+                    | LowestFirst ->
+                        // If we are in LowestFirst mode, we potentially know the lowest key
+                        // If it is still in the map, it is the current one
+                        if experimentalEmitterMap.ContainsKey key then
+                            [ key ]
+                        else
+                            // If it is not in the map, we reset the remaining keys
+                            experimentalEmitterMap.Keys |> Seq.toList
+
+                // Valid reduction, save it
                 performChange key validEmitterMap
-                optimize (validEmitterMap.Keys |> Seq.toList)
+                optimize remainingKeys
             else
-                // Reset experimental dict, move this key and try others
+                // Reset experimental dict, remove this key and try others
                 experimentalEmitterMap.[key] <- validEmitterMap.[key]
                 optimize (List.filter ((<>) key) remainingKeys)
 
