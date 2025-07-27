@@ -8,16 +8,20 @@ on:
   pull_request:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        dotnet: [8.0.403]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
-      - name: Restore dependencies
-        run: dotnet restore src/
+          dotnet-version: ${{ matrix.dotnet }}
       - name: Build
-        run: dotnet build src/ --no-restore
+        run: dotnet run build
+      - name: Run tests
+        run: dotnet run test

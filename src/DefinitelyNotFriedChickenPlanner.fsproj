@@ -8,9 +8,11 @@
     <Compile Include="Core/GenerationConfig.fs" />
     <Compile Include="Core/Room.fs" />
     <Compile Include="Core/RoomLayout.fs" />
-    <Compile Include="Core/Config.fs" />
+    <Compile Include="Core/Helper/Measure.fs" />
     <Compile Include="Core/Helper/Seq.fs" />
-    <Compile Include="Core/Modules/Emitter.fs" />
+    <Compile Include="Core/Config.fs" />
+    <Compile Include="Core/Optics/RoomOptics.fs" />
+    <Compile Include="Core/Optics/RoomLayoutOptics.fs" />
     <Compile Include="Core/Modules/Room.fs" />
     <Compile Include="RoomLayout/Validation.fs" />
     <Compile Include="RoomLayout/Scoring.fs" />
@@ -25,5 +27,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FsToolkit.ErrorHandling" />
+    <PackageReference Include="NicoVIII.SimpleOptics" />
   </ItemGroup>
 </Project>

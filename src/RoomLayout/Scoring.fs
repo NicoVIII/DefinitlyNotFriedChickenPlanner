@@ -1,18 +1,12 @@
 [<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.RoomLayout.Scoring
 
-open Microsoft.FSharp.Core.LanguagePrimitives
-
 open DefinitlyNotFriedChickenPlanner
+open DefinitlyNotFriedChickenPlanner.Helper
+open Microsoft.FSharp.Core.Operators.Checked
 
 let countGrowboxes (roomLayout: RoomLayout) : int =
-    roomLayout
-    |> Set.filter (function
-        | { applianceType = Growbox _ } -> true
-        | _ -> false)
-    |> Set.count
-
-let inline floatWUnit (value: int<'a>) : float<'a> = float value |> FloatWithMeasure<'a>
+    roomLayout |> Set.filter (fun a -> a.applianceType.IsGrowbox) |> Set.count
 
 let calculateHourlyCost (roomLayout: RoomLayout) =
     roomLayout
@@ -21,11 +15,11 @@ let calculateHourlyCost (roomLayout: RoomLayout) =
         | { applianceType = Emitter emitter } -> Some emitter
         | _ -> None)
     |> List.sumBy (fun emitter ->
-        match emitter.emitterType with
-        | Heater value -> Config.heat.cost * floatWUnit value
-        | Humidifier value -> Config.humidity.cost * floatWUnit value
-        | Light value -> Config.light.cost * floatWUnit value
-        | Sprinkler value -> Config.water.cost * floatWUnit value)
+        match emitter with
+        | Heater value -> Config.heat.cost * int8ToDouble value
+        | Humidifier value -> Config.humidity.cost * int8ToDouble value
+        | Light value -> Config.light.cost * int8ToDouble value
+        | Sprinkler value -> Config.water.cost * int8ToDouble value)
 
 let calculateScoreTier1 roomLayout =
     countGrowboxes roomLayout * 1<ScoreTier1>

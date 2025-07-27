@@ -2,81 +2,87 @@
 
 open BenchmarkDotNet.Attributes
 open BenchmarkDotNet.Running
+open SimpleOptics
 
 open DefinitlyNotFriedChickenPlanner
 open DefinitlyNotFriedChickenPlanner.RoomLayout
 
 type OptimizationBenchmark() =
-    let room = 5, 5
+    let room = { width = 10uy; height = 10uy }
 
-    let growboxCoordinates = [
-        { x = 1; y = 0 }
-        { x = 3; y = 0 }
-        { x = 0; y = 1 }
-        { x = 3; y = 1 }
-        { x = 0; y = 2 }
-        { x = 3; y = 2 }
-        { x = 0; y = 3 }
-        { x = 3; y = 3 }
-        { x = 1; y = 4 }
+    let growboxCoordinates =
+        [ 1, 0; 3, 0; 0, 1; 3, 1; 0, 2; 3, 2; 0, 3; 3, 3; 1, 4 ]
+        |> List.map (fun (x, y) -> {
+            overhead = false
+            x = uint8 x
+            y = uint8 y
+        })
+
+    let lightCoordinates =
+        [ 2, 2; 1, 1 ]
+        |> List.map (fun (x, y) -> {
+            overhead = true
+            x = uint8 x
+            y = uint8 y
+        })
+
+    let simpleTileLayout = [
+        {
+            applianceType = Emitter(Sprinkler 80y<Water>)
+            coordinate = { overhead = false; x = 2uy; y = 2uy }
+        }
+        {
+            applianceType = Emitter(Heater 70y<Heat>)
+            coordinate = { overhead = false; x = 0uy; y = 0uy }
+        }
+        {
+            applianceType = Emitter(Humidifier 75y<Humidity>)
+            coordinate = { overhead = false; x = 4uy; y = 4uy }
+        }
+        for coord in lightCoordinates do
+            {
+                applianceType = Emitter(Light 90y<Light>)
+                coordinate = coord
+            }
+        for coord in growboxCoordinates do
+            {
+                applianceType =
+                    Growbox {
+                        orientation = East
+                        growboxType = Config.growboxTypes.cannabis
+                    }
+                coordinate = coord
+            }
     ]
 
     let simpleRoomLayout =
-        Set.ofList [
-            {
-                applianceType =
-                    Emitter {
-                        overhead = true
-                        emitterType = Light 85<Light>
-                    }
-                coordinate = { x = 2; y = 2 }
-            }
-            {
-                applianceType =
-                    Emitter {
-                        overhead = true
-                        emitterType = Light 90<Light>
-                    }
-                coordinate = { x = 1; y = 1 }
-            }
-            {
-                applianceType =
-                    Emitter {
-                        overhead = false
-                        emitterType = Sprinkler 80<Water>
-                    }
-                coordinate = { x = 2; y = 2 }
-            }
-            {
-                applianceType =
-                    Emitter {
-                        overhead = false
-                        emitterType = Heater 70<Heat>
-                    }
-                coordinate = { x = 0; y = 0 }
-            }
-            {
-                applianceType =
-                    Emitter {
-                        overhead = false
-                        emitterType = Humidifier 75<Humidity>
-                    }
-                coordinate = { x = 4; y = 4 }
-            }
-            for coord in growboxCoordinates do
-                {
-                    applianceType =
-                        Growbox {
-                            orientation = East
-                            growboxType = Config.growboxTypes.cannabis
-                        }
-                    coordinate = coord
-                }
+        [
+            for appliance in simpleTileLayout do
+                yield appliance
+                yield Optic.map ApplianceOptic.x ((+) 5uy) appliance
+                let yModified = Optic.map ApplianceOptic.y ((+) 5uy) appliance
+                yield yModified
+                yield Optic.map ApplianceOptic.x ((+) 5uy) yModified
         ]
+        |> Set.ofList
 
     [<Benchmark>]
-    member _.Optimize() =
+    member _.CalculateScoreTier1() = calculateScoreTier1 simpleRoomLayout
+
+    [<Benchmark>]
+    member _.CalculateScoreTier2() = calculateScoreTier2 simpleRoomLayout
+
+    [<Benchmark>]
+    member _.Validate() =
+        validate room simpleRoomLayout |> ignore
+
+    [<Benchmark>]
+    member _.OptimizeLowestFirst() =
         optimizeEmitterCost LowestFirst room simpleRoomLayout
+
+    [<Benchmark>]
+    member _.OptimizeHeighestFirst() =
+        optimizeEmitterCost HighestFirst room simpleRoomLayout
 
 module Program =
     [<EntryPoint>]

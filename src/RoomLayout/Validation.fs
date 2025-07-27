@@ -2,47 +2,71 @@
 module DefinitlyNotFriedChickenPlanner.RoomLayout.Validation
 
 open FsToolkit.ErrorHandling
+open Microsoft.FSharp.Core.Operators.Checked
 
 open DefinitlyNotFriedChickenPlanner
+open DefinitlyNotFriedChickenPlanner.Helper
 
 // Types
 type PlacementValidationError =
     | DoublePlacement
     | InvalidCoordinate
+    | InvalidOverheadSetting
     | GrowboxOutOfBounds
     | GrowboxAdjacentTileOccupied
     | GrowboxAdjacentTileNeeded
 
+type GrowboxNeedsNotMetError =
+    | InvalidHeat of Coordinate * int8<Heat>
+    | InvalidHumidity of Coordinate * int8<Humidity>
+    | InvalidLight of Coordinate * int8<Light>
+    | InvalidWater of Coordinate * int8<Water>
+
 type ValidationError =
     | Placement of PlacementValidationError
-    | Unknown
+    | GrowboxNeedsNotMet of GrowboxNeedsNotMetError list
 
 // Helper objects
 let defaultMeasurements = {
-    heat = 0<Heat>
-    humidity = 0<Humidity>
-    light = 0<Light>
-    water = 0<Water>
+    heat = 0y<Heat>
+    humidity = 0y<Humidity>
+    light = 0y<Light>
+    water = 0y<Water>
 }
 
 // Functions
 let validateCoordinate room (coordinate: Coordinate) =
-    let width, height = room
-
     result {
         if
-            coordinate.x < 0
-            || coordinate.x >= width
-            || coordinate.y < 0
-            || coordinate.y >= height
+            coordinate.x < 0uy
+            || coordinate.x >= room.width
+            || coordinate.y < 0uy
+            || coordinate.y >= room.height
         then
             return! Error InvalidCoordinate
     }
 
-let validateRoomLayout (room: Room) (roomLayout: RoomLayout) : Result<unit, PlacementValidationError> =
-    let width, height = room
-    let appliances = Set.toList roomLayout
+let validateApplianceOverhead appliance =
+    result {
+        // Check if the overhead setting is valid for the appliance type
+        // Lights have be overhead, all other appliances must be on the ground
+        match appliance.applianceType, appliance.coordinate.overhead with
+        | Growbox _, false
+        | Emitter(Heater _), false
+        | Emitter(Humidifier _), false
+        | Emitter(Sprinkler _), false
+        | Emitter(Light _), true -> ()
+        | _ -> return! Error InvalidOverheadSetting
+    }
 
+let getNextCoordinate orientation coord : Coordinate =
+    match orientation with
+    | North -> { coord with y = coord.y - 1uy }
+    | South -> { coord with y = coord.y + 1uy }
+    | East -> { coord with x = coord.x + 1uy }
+    | West -> { coord with x = coord.x - 1uy }
+
+let validateRoomLayout (room: Room) appliances : Result<unit, PlacementValidationError> =
     let checkForDoublePlacement appliances =
         result {
             let distinct = List.distinctBy (fun a -> a.coordinate) appliances
@@ -51,29 +75,19 @@ let validateRoomLayout (room: Room) (roomLayout: RoomLayout) : Result<unit, Plac
                 return! Error DoublePlacement
         }
 
-    let getNextCoordinate orientation coord =
-        match orientation with
-        | North -> { coord with y = coord.y - 1 }
-        | South -> { coord with y = coord.y + 1 }
-        | East -> { coord with x = coord.x + 1 }
-        | West -> { coord with x = coord.x - 1 }
-
     let isOutOfBounds orientation coord =
         match orientation with
-        | North -> coord.y <= 0
-        | South -> coord.y >= height - 1
-        | East -> coord.x >= width - 1
-        | West -> coord.x <= 0
+        | North -> coord.y <= 0uy
+        | South -> coord.y >= room.height - 1uy
+        | East -> coord.x >= room.width - 1uy
+        | West -> coord.x <= 0uy
 
     result {
+        // Check if all appliances have valid overhead settings
+        do! List.traverseResultM validateApplianceOverhead appliances |> Result.ignore
+
         let groundAppliances, overheadAppliances =
-            List.partition
-                (function
-                | {
-                      applianceType = Emitter { overhead = true }
-                  } -> false
-                | _ -> true)
-                appliances
+            List.partition (_.coordinate >> _.overhead) appliances
 
         // Check for double placement on the ground and overhead
         do! checkForDoublePlacement groundAppliances
@@ -120,23 +134,19 @@ let validateRoomLayout (room: Room) (roomLayout: RoomLayout) : Result<unit, Plac
             |> Result.ignore
     }
 
-let calculateTileDistance (a: Coordinate) (b: Coordinate) : int<Tile> =
-    abs (a.x - b.x) + abs (a.y - b.y) |> (*) 1<Tile>
+let calculateTileDistance (a: Coordinate) (b: Coordinate) : uint8<Tile> =
+    let xDiff = if a.x > b.x then a.x - b.x else b.x - a.x
+    let yDiff = if a.y > b.y then a.y - b.y else b.y - a.y
+    xDiff + yDiff |> (*) 1uy<Tile>
 
-let calculateMeasurements (room: Room) (roomLayout: RoomLayout) =
-    let clipToBounds measurements = {
-        heat = measurements.heat |> max -100<Heat> |> min 100<Heat>
-        humidity = measurements.humidity |> max -100<Humidity> |> min 100<Humidity>
-        light = measurements.light |> max 0<Light> |> min 100<Light>
-        water = measurements.water |> max 0<Water> |> min 100<Water>
-    }
-
+let calculateMeasurements (room: Room) appliances =
     let measurementMap =
-        Array2D.create<Measurements> (fst room) (snd room) defaultMeasurements
+        let width = room.width |> int
+        let height = room.height |> int
+        Array2D.create<Measurements> width height defaultMeasurements
 
     let emitters =
-        roomLayout
-        |> Set.toList
+        appliances
         |> List.choose (function
             | {
                   applianceType = Emitter emitter
@@ -144,89 +154,112 @@ let calculateMeasurements (room: Room) (roomLayout: RoomLayout) =
               } -> Some(emitter, coordinate)
             | _ -> None)
 
-    for emitter, coordinate in emitters do
-        for x in 0 .. (fst room - 1) do
-            for y in 0 .. (snd room - 1) do
-                let distance = calculateTileDistance coordinate { x = x; y = y }
+    for emitter, emitterCoord in emitters do
+        for coord in Room.generateCoords false room do
+            let x, y = int coord.x, int coord.y
+            let distance = calculateTileDistance emitterCoord coord |> uint8Toint16
 
-                match emitter.emitterType with
-                | Heater intensity ->
-                    let adjustment = max 0<Heat> (intensity - distance * Config.heat.reduction)
+            match emitter with
+            | Heater intensity ->
+                let adjustment =
+                    int8ToInt16 intensity - distance * Config.heat.reduction |> max 0s<Heat>
 
-                    measurementMap.[x, y] <- {
-                        measurementMap.[x, y] with
-                            heat = measurementMap.[x, y].heat + adjustment
-                    }
-                | Humidifier intensity ->
-                    let adjustment = max 0<Humidity> (intensity - distance * Config.humidity.reduction)
+                measurementMap.[x, y] <- {
+                    measurementMap.[x, y] with
+                        heat =
+                            int8ToInt16 measurementMap.[x, y].heat + adjustment
+                            |> min Config.heat.max
+                            |> int16ToInt8
+                }
+            | Humidifier intensity ->
+                let adjustment =
+                    int8ToInt16 intensity - distance * Config.humidity.reduction |> max 0s<Humidity>
 
-                    measurementMap.[x, y] <- {
-                        measurementMap.[x, y] with
-                            humidity = measurementMap.[x, y].humidity + adjustment
-                    }
-                | Light intensity ->
-                    let adjustment = max 0<Light> (intensity - distance * Config.light.reduction)
+                measurementMap.[x, y] <- {
+                    measurementMap.[x, y] with
+                        humidity =
+                            int8ToInt16 measurementMap.[x, y].humidity + adjustment
+                            |> min 100s<Humidity>
+                            |> int16ToInt8
+                }
+            | Light intensity ->
+                let adjustment =
+                    int8ToInt16 intensity - distance * Config.light.reduction |> max 0s<Light>
 
-                    measurementMap.[x, y] <- {
-                        measurementMap.[x, y] with
-                            light = measurementMap.[x, y].light + adjustment
-                    }
-                | Sprinkler intensity ->
-                    let adjustment = max 0<Water> (intensity - distance * Config.water.reduction)
+                measurementMap.[x, y] <- {
+                    measurementMap.[x, y] with
+                        light =
+                            int8ToInt16 measurementMap.[x, y].light + adjustment
+                            |> min 100s<Light>
+                            |> int16ToInt8
+                }
+            | Sprinkler intensity ->
+                let adjustment =
+                    int8ToInt16 intensity - distance * Config.water.reduction |> max 0s<Water>
 
-                    measurementMap.[x, y] <- {
-                        measurementMap.[x, y] with
-                            water = measurementMap.[x, y].water + adjustment
-                    }
+                measurementMap.[x, y] <- {
+                    measurementMap.[x, y] with
+                        water =
+                            int8ToInt16 measurementMap.[x, y].water + adjustment
+                            |> min 100s<Water>
+                            |> int16ToInt8
+                }
 
-    measurementMap |> Array2D.map clipToBounds
+    measurementMap
 
-let validateGrowboxNeeds (roomLayout: RoomLayout) (measurements: Measurements[,]) =
+let validateGrowboxNeeds appliances (measurements: Measurements[,]) =
     let checkGrowbox (growbox: Growbox) (coordinate: Coordinate) =
-        let minMeasurements = growbox.growboxType.minMeasurements
-        let maxMeasurements = growbox.growboxType.maxMeasurements
-        let measurement = measurements.[coordinate.x, coordinate.y]
+        result {
+            let minMeasurements = growbox.growboxType.minMeasurements
+            let maxMeasurements = growbox.growboxType.maxMeasurements
+            let measurement = measurements.[int coordinate.x, int coordinate.y]
 
-        if
-            measurement.heat < minMeasurements.heat
-            || measurement.heat > maxMeasurements.heat
-        then
-            failwithf "Growbox at %A has invalid heat %A." coordinate measurement.heat
+            if
+                measurement.heat < minMeasurements.heat
+                || measurement.heat > maxMeasurements.heat
+            then
+                return! InvalidHeat(coordinate, measurement.heat) |> Error
 
-        if
-            measurement.humidity < minMeasurements.humidity
-            || measurement.humidity > maxMeasurements.humidity
-        then
-            failwithf "Growbox at %A has invalid humidity %A." coordinate measurement.humidity
+            if
+                measurement.humidity < minMeasurements.humidity
+                || measurement.humidity > maxMeasurements.humidity
+            then
+                return! InvalidHumidity(coordinate, measurement.humidity) |> Error
 
-        if
-            measurement.light < minMeasurements.light
-            || measurement.light > maxMeasurements.light
-        then
-            failwithf "Growbox at %A has invalid light %A." coordinate measurement.light
+            if
+                measurement.light < minMeasurements.light
+                || measurement.light > maxMeasurements.light
+            then
+                return! InvalidLight(coordinate, measurement.light) |> Error
 
-        if
-            measurement.water < minMeasurements.water
-            || measurement.water > maxMeasurements.water
-        then
-            failwithf "Growbox at %A has invalid water %A." coordinate measurement.water
+            if
+                measurement.water < minMeasurements.water
+                || measurement.water > maxMeasurements.water
+            then
+                return! InvalidWater(coordinate, measurement.water) |> Error
+        }
 
-    roomLayout
-    |> Set.toList
+    appliances
     |> List.choose (function
         | {
               applianceType = Growbox growbox
               coordinate = coordinate
           } -> Some(growbox, coordinate)
         | _ -> None)
-    |> List.iter (fun (growbox, coordinate) -> checkGrowbox growbox coordinate)
+    |> List.traverseResultA (fun (growbox, coordinate) -> checkGrowbox growbox coordinate)
+    |> Result.ignore
 
-let validate room roomLayout =
-    try
-        result {
-            do! validateRoomLayout room roomLayout |> Result.mapError Placement
-            let measurements = calculateMeasurements room roomLayout
-            validateGrowboxNeeds roomLayout measurements
-        }
-    with _ ->
-        Error Unknown
+/// Helper function which validates a list of appliances instead of a set to make this more efficient
+/// in a scenario where we have to validate a lot
+let validateList room appliances =
+    result {
+        do! validateRoomLayout room appliances |> Result.mapError Placement
+        let measurements = calculateMeasurements room appliances
+
+        do!
+            validateGrowboxNeeds appliances measurements
+            |> Result.mapError GrowboxNeedsNotMet
+    }
+
+let validate room (roomLayout: RoomLayout) =
+    Set.toList roomLayout |> validateList room

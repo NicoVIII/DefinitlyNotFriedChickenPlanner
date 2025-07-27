@@ -7,7 +7,7 @@ open DefinitlyNotFriedChickenPlanner.GenerationConfig
 
 [<AutoOpen>]
 module ProgramConfig =
-    let room = 5, 5
+    let room = { width = 5uy; height = 5uy }
     let configGenerations = 10
     let optimizationIterations = 100
 

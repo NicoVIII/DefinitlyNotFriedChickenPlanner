@@ -1,98 +1,95 @@
 [<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.RoomLayout.Optimization
 
+open Microsoft.FSharp.Core.Operators.Checked
+open SimpleOptics
 open System
+open System.Collections.Generic
 
 open DefinitlyNotFriedChickenPlanner
 open Validation
 
+let reduceEmitter appliance =
+    Optic.get ApplianceOptic.emitterValue appliance
+    |> Option.defaultWith (fun () -> failwith "Expected Ok, but got Error")
+    |> function
+        | value when value > 1y -> Optic.set ApplianceOptic.emitterValue (value - 1y) appliance |> Some
+        | _ -> None
+
 let optimizeEmitterCost strategy (room: Room) (roomLayout: RoomLayout) : RoomLayout =
     // We check, if the appliances are valid
-    if validate room roomLayout |> Result.isError then
-        failwith "Invalid appliances for optimisation"
+    match validate room roomLayout with
+    | Ok _ -> ()
+    | Error error -> failwithf "Invalid appliances for optimisation: %A" error
+
+    let coordinateToKey coord : uint =
+        let xBits = uint coord.x
+        let yBits = uint coord.y <<< 8
+        let overheadBit = if coord.overhead then 1u <<< 16 else 0u
+        xBits + yBits + overheadBit
 
     let appliances = roomLayout |> Set.toList
 
-    // To simplify changing the emitters, we first collect them all via coordinates and overhead
-    let mutable emitters =
+    let emitterMapData =
         appliances
         |> List.choose (function
-            | {
-                  applianceType = Emitter emitterType
-                  coordinate = coord
-              } -> ((coord, emitterType.overhead), emitterType) |> Some
+            | { applianceType = Emitter _ } as emitter ->
+                (coordinateToKey emitter.coordinate, emitter) |> KeyValuePair |> Some
             | _ -> None)
-        |> Map.ofList
+
+    // We track the changes in two maps - one contains always a valid state
+    let validEmitterMap = new Dictionary<uint, Appliance>(emitterMapData)
+    let experimentalEmitterMap = new Dictionary<uint, Appliance>(validEmitterMap)
 
     let rest =
-        List.filter
-            (function
+        appliances
+        |> List.filter (function
             | { applianceType = Emitter _ } -> false
             | _ -> true)
-            appliances
 
-    let getRoomLayout emitterMap =
-        rest
-        @ (emitterMap
-           |> Map.toList
-           |> List.map (fun ((coord, _), emitterType) -> {
-               applianceType = Emitter emitterType
-               coordinate = coord
-           }))
-        |> Set.ofList
+    let getRoomLayout (emitterMap: Dictionary<uint, Appliance>) =
+        [
+            for key in emitterMap.Keys do
+                emitterMap.[key]
+        ]
+        |> List.append rest
 
-    let mutable remainingEmitters = emitters |> Map.keys |> List.ofSeq
+    let performChange (key: uint) (map: Dictionary<uint, Appliance>) =
+        match reduceEmitter map.[key] with
+        | Some reducedEmitter -> map.[key] <- reducedEmitter
+        | None -> map.Remove key |> ignore
 
-    while not (List.isEmpty remainingEmitters) do
-        let key =
-            match strategy with
-            | HighestFirst ->
-                remainingEmitters
-                |> List.maxBy (fun key -> Map.find key emitters |> Emitter.getValue)
-            | LowestFirst ->
-                remainingEmitters
-                |> List.minBy (fun key -> Map.find key emitters |> Emitter.getValue)
+    let rec optimize remainingKeys =
+        match remainingKeys with
+        | [] -> ()
+        | _ ->
+            let key =
+                match strategy with
+                | HighestFirst ->
+                    remainingKeys
+                    |> List.maxBy (fun key ->
+                        validEmitterMap.[key]
+                        |> Optic.get ApplianceOptic.emitterValue
+                        |> Option.defaultWith (fun () -> failwithf "Expected Ok, but got Error"))
+                | LowestFirst ->
+                    remainingKeys
+                    |> List.minBy (fun key ->
+                        validEmitterMap.[key]
+                        |> Optic.get ApplianceOptic.emitterValue
+                        |> Option.defaultWith (fun () -> failwithf "Expected Ok, but got Error"))
 
-        let reductionResult =
-            Map.change
-                key
-                (Option.defaultWith (fun () -> failwith "Mapkey was missing")
-                 >> (function
-                 // TODO: Use lenses to make this code more readable
-                 | { emitterType = Heater temp } as emitter when temp > 1<Heat> ->
-                     Some {
-                         emitter with
-                             emitterType = Heater(temp - 1<Heat>)
-                     }
-                 | { emitterType = Humidifier hum } as emitter when hum > 1<Humidity> ->
-                     Some {
-                         emitter with
-                             emitterType = Humidifier(hum - 1<Humidity>)
-                     }
-                 | { emitterType = Sprinkler water } as emitter when water > 1<Water> ->
-                     Some {
-                         emitter with
-                             emitterType = Sprinkler(water - 1<Water>)
-                     }
-                 | { emitterType = Light light } as emitter when light > 1<Light> ->
-                     Some {
-                         emitter with
-                             emitterType = Light(light - 1<Light>)
-                     }
-                 // We remove the emitter, if we would reduce its value to 0
-                 | { emitterType = Heater _ }
-                 | { emitterType = Humidifier _ }
-                 | { emitterType = Sprinkler _ }
-                 | { emitterType = Light _ } -> None))
-                emitters
+            // We perform the change on the experimental map
+            performChange key experimentalEmitterMap
 
-        if getRoomLayout reductionResult |> validate room |> Result.isOk then
-            // We could make a valid reduction, we therefore save it
-            emitters <- reductionResult
-            // And we allow all emitters to be chosen again
-            remainingEmitters <- emitters |> Map.keys |> List.ofSeq
-        else
-            // No success with this emitter, we therefore remove it from the list of possibilities
-            remainingEmitters <- remainingEmitters |> List.filter ((<>) key)
+            // We check if the change is valid
+            if getRoomLayout experimentalEmitterMap |> validateList room |> Result.isOk then
+                // Valid reduction, save it and restart with all keys
+                performChange key validEmitterMap
+                optimize (validEmitterMap.Keys |> Seq.toList)
+            else
+                // Reset experimental dict, move this key and try others
+                experimentalEmitterMap.[key] <- validEmitterMap.[key]
+                optimize (List.filter ((<>) key) remainingKeys)
 
-    getRoomLayout emitters
+    optimize (validEmitterMap.Keys |> Seq.toList)
+    getRoomLayout validEmitterMap |> Set.ofList

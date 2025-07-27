@@ -1,6 +1,7 @@
 [<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.GenerationConfig.Scoring
 
+open Microsoft.FSharp.Core.Operators.Checked
 open System
 
 open DefinitlyNotFriedChickenPlanner

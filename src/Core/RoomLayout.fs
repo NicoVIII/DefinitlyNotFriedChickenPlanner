@@ -7,16 +7,11 @@ type Orientation =
     | South
     | West
 
-type EmitterType =
-    | Heater of int<Heat>
-    | Humidifier of int<Humidity>
-    | Light of int<Light>
-    | Sprinkler of int<Water>
-
-type Emitter = {
-    emitterType: EmitterType
-    overhead: bool
-}
+type Emitter =
+    | Heater of int8<Heat>
+    | Humidifier of int8<Humidity>
+    | Light of int8<Light>
+    | Sprinkler of int8<Water>
 
 type GrowboxType = {
     minMeasurements: Measurements

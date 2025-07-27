@@ -1,6 +1,7 @@
 [<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.GenerationConfig.Generation
 
+open Microsoft.FSharp.Core.Operators.Checked
 open System
 
 open DefinitlyNotFriedChickenPlanner

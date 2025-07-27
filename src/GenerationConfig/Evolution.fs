@@ -1,9 +1,10 @@
 [<AutoOpen>]
 module DefinitlyNotFriedChickenPlanner.GenerationConfig.Evolution
 
+open Microsoft.FSharp.Core.Operators.Checked
 open System
 
-open DefinitlyNotFriedChickenPlanner
+open DefinitlyNotFriedChickenPlanner.Helper
 open DefinitlyNotFriedChickenPlanner.GenerationConfig.Generation
 open DefinitlyNotFriedChickenPlanner.GenerationConfig.Mutation
 open DefinitlyNotFriedChickenPlanner.GenerationConfig.Scoring

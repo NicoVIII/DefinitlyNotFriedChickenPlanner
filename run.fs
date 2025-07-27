@@ -8,18 +8,32 @@ module Config =
         "./benchmark/DefinitelyNotFriedChickenPlanner.Benchmark.fsproj"
 
     let project = "./src/DefinitelyNotFriedChickenPlanner.fsproj"
+    let testProject = "./tests/DefinitelyNotFriedChickenPlanner.Tests.fsproj"
+
+    let projects = [ project; testProject; benchmarkProject ]
 
 module Task =
     let restore () =
         job {
             DotNet.toolRestore ()
-            DotNet.restore Config.project
+
+            for project in Config.projects do
+                DotNet.restore project
         }
 
     let build () =
-        job { DotNet.build Config.project Debug }
+        job {
+            for project in Config.projects do
+                DotNet.build project Debug
+        }
+
+    let benchmark () =
+        job { dotnet [ "run"; "--project"; Config.benchmarkProject; "-c"; "Release" ] }
 
     let run () = job { DotNet.run Config.project }
+
+    let runWithArgs args =
+        job { dotnet [ "run"; "--project"; Config.project; "--"; yield! args ] }
 
 [<EntryPoint>]
 let main args =
@@ -32,7 +46,9 @@ let main args =
                 Task.restore ()
                 Task.build ()
             }
-        | [ "benchmark" ] -> job { dotnet [ "run"; "--project"; Config.benchmarkProject; "-c"; "Release" ] }
-        | [] -> job { DotNet.run Config.project }
-        | args -> job { dotnet [ "run"; "--project"; Config.project; "--"; yield! args ] }
+        | [ "benchmark" ] -> Task.benchmark ()
+        | [ "test" ]
+        | [ "tests" ] -> job { DotNet.run Config.testProject }
+        | [] -> Task.run ()
+        | args -> Task.runWithArgs args
     |> Job.execute

@@ -1,5 +1,5 @@
 [<RequireQualifiedAccess>]
-module DefinitlyNotFriedChickenPlanner.Seq
+module DefinitlyNotFriedChickenPlanner.Helper.Seq
 
 let cycle (source: seq<'T>) : seq<'T> =
     seq {

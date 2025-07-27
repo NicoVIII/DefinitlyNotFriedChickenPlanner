@@ -4,7 +4,7 @@ module DefinitlyNotFriedChickenPlanner.RoomLayout.Printing
 open DefinitlyNotFriedChickenPlanner
 
 let printMeasurements (measurements: Measurements[,]) =
-    let printGrid (getValue: Measurements -> int<'a>) =
+    let printGrid (getValue: Measurements -> int8<'a>) =
         for y in 0 .. (Array2D.length1 measurements - 1) do
             for x in 0 .. (Array2D.length2 measurements - 1) do
                 let value = getValue measurements.[x, y]
@@ -22,16 +22,13 @@ let printMeasurements (measurements: Measurements[,]) =
     printGrid (fun m -> m.water)
 
 let printRoomLayout (room: Room) (roomLayout: RoomLayout) =
-    let width, _ = room
-    let roomCords = Room.generateCoords room
-
-    let printGrid (roomLayout: RoomLayout) =
-        for coord in roomCords do
+    let printGrid overhead (roomLayout: RoomLayout) =
+        for coord in Room.generateCoords overhead room do
             match roomLayout |> Set.toList |> List.tryFind (fun a -> a.coordinate = coord) with
             | Some appliance ->
                 match appliance.applianceType with
                 | Emitter emitter ->
-                    match emitter.emitterType with
+                    match emitter with
                     | Heater value -> printf "%3i%s " value "H"
                     | Humidifier value -> printf "%3i%s " value "U"
                     | Light value -> printf "%3i%s " value "L"
@@ -44,27 +41,13 @@ let printRoomLayout (room: Room) (roomLayout: RoomLayout) =
                     | West -> printf "%4s " "←"
             | None -> printf "%4s " "-"
 
-            if coord.x = width - 1 then
+            if coord.x = room.width - 1uy then
                 printfn ""
 
         printfn ""
 
     printfn "Overhead:"
-
-    roomLayout
-    |> Set.filter (function
-        | {
-              applianceType = Emitter { overhead = true }
-          } -> true
-        | _ -> false)
-    |> printGrid
+    roomLayout |> Set.filter (_.coordinate >> _.overhead) |> printGrid true
 
     printfn "Ground:"
-
-    roomLayout
-    |> Set.filter (function
-        | {
-              applianceType = Emitter { overhead = true }
-          } -> false
-        | _ -> true)
-    |> printGrid
+    roomLayout |> Set.filter (_.coordinate >> _.overhead >> not) |> printGrid false
