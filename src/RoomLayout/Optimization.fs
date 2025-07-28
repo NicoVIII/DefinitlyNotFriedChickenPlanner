@@ -3,8 +3,6 @@ module DefinitlyNotFriedChickenPlanner.RoomLayout.Optimization
 
 open Microsoft.FSharp.Core.Operators.Checked
 open SimpleOptics
-open System
-open System.Collections.Generic
 
 open DefinitlyNotFriedChickenPlanner
 open Validation
@@ -21,12 +19,6 @@ let optimizeEmitterCost strategy (room: Room) (roomLayout: RoomLayout) : RoomLay
     match validate room roomLayout with
     | Ok _ -> ()
     | Error error -> failwithf "Invalid appliances for optimisation: %A" error
-
-    let coordinateToKey coord : uint =
-        let xBits = uint coord.x
-        let yBits = uint coord.y <<< 8
-        let overheadBit = if coord.overhead then 1u <<< 16 else 0u
-        xBits + yBits + overheadBit
 
     let emitterMapData =
         roomLayout
@@ -47,25 +39,15 @@ let optimizeEmitterCost strategy (room: Room) (roomLayout: RoomLayout) : RoomLay
         Map.change key (Option.bind reduceEmitter) map
 
     // We track the changes in two maps - one contains always a valid state
-    let rec optimize remainingKeys validEmitterMap =
+    let rec optimize remainingKeys valueMap validEmitterMap =
         match remainingKeys with
         | [] -> validEmitterMap
         | _ ->
             let key =
                 match remainingKeys, strategy with
                 | [ key ], _ -> key // Only one key left, we have to use it
-                | _, HighestFirst ->
-                    remainingKeys
-                    |> List.maxBy (fun key ->
-                        Map.find key validEmitterMap
-                        |> Optic.get ApplianceOptic.emitterValue
-                        |> Option.defaultWith (fun () -> failwithf "Expected Ok, but got Error"))
-                | _, LowestFirst ->
-                    remainingKeys
-                    |> List.minBy (fun key ->
-                        Map.find key validEmitterMap
-                        |> Optic.get ApplianceOptic.emitterValue
-                        |> Option.defaultWith (fun () -> failwithf "Expected Ok, but got Error"))
+                | _, HighestFirst -> remainingKeys |> List.maxBy (fun key -> Map.find key valueMap)
+                | _, LowestFirst -> remainingKeys |> List.minBy (fun key -> Map.find key valueMap)
 
             // We perform the change on the experimental map
             let experimentalEmitterMap = performChange key validEmitterMap
@@ -80,10 +62,22 @@ let optimizeEmitterCost strategy (room: Room) (roomLayout: RoomLayout) : RoomLay
                     else
                         remainingKeys
 
-                performChange key validEmitterMap |> optimize remainingKeys
+                // We update the value map as well
+                let updatedValueMap = Map.change key (Option.map ((-) 1y)) valueMap
+
+                experimentalEmitterMap |> optimize remainingKeys updatedValueMap
             else
                 // Remove this key and try others
-                optimize (List.filter ((<>) key) remainingKeys) validEmitterMap
+                optimize (List.filter ((<>) key) remainingKeys) valueMap validEmitterMap
 
     let emitterMap = Map.ofList emitterMapData
-    optimize (Map.keys emitterMap |> Seq.toList) emitterMap |> getRoomLayout
+    // We track the pure values in another map to speed up the lookup
+    let valueMap =
+        Map.map
+            (fun _ ->
+                Optic.get ApplianceOptic.emitterValue
+                >> Option.defaultWith (fun () -> failwithf "Expected ok"))
+            emitterMap
+
+    optimize (Map.keys emitterMap |> Seq.toList) valueMap emitterMap
+    |> getRoomLayout
