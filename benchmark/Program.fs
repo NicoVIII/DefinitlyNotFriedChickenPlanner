@@ -8,7 +8,7 @@ open DefinitlyNotFriedChickenPlanner
 open DefinitlyNotFriedChickenPlanner.RoomLayout
 
 type OptimizationBenchmark() =
-    let room = { width = 10uy; height = 10uy }
+    let room = { width = 15uy; height = 10uy }
 
     let growboxCoordinates =
         [ 1, 0; 3, 0; 0, 1; 3, 1; 0, 2; 3, 2; 0, 3; 3, 3; 1, 4 ]
@@ -58,11 +58,12 @@ type OptimizationBenchmark() =
     let simpleRoomLayout =
         [
             for appliance in simpleTileLayout do
-                yield appliance
-                yield Optic.map ApplianceOptic.x ((+) 5uy) appliance
-                let yModified = Optic.map ApplianceOptic.y ((+) 5uy) appliance
-                yield yModified
-                yield Optic.map ApplianceOptic.x ((+) 5uy) yModified
+                for y in 0uy .. 5uy .. 5uy do
+                    for x in 0uy .. 5uy .. 10uy do
+                        yield
+                            appliance
+                            |> Optic.map ApplianceOptic.x ((+) x)
+                            |> Optic.map ApplianceOptic.y ((+) y)
         ]
         |> Set.ofList
 
