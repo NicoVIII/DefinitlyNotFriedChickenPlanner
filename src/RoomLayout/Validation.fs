@@ -66,12 +66,12 @@ let getNextCoordinate orientation coord : Coordinate =
     | East -> { coord with x = coord.x + 1uy }
     | West -> { coord with x = coord.x - 1uy }
 
-let validateRoomLayout (room: Room) appliances : Result<unit, PlacementValidationError> =
-    let checkForDoublePlacement appliances =
+let validateRoomLayout (room: Room) roomLayout : Result<unit, PlacementValidationError> =
+    let checkForDoublePlacement roomLayout =
         result {
-            let distinct = List.distinctBy (fun a -> a.coordinate) appliances
+            let distinct = List.distinctBy (fun a -> a.coordinate) roomLayout
 
-            if List.length distinct <> List.length appliances then
+            if List.length distinct <> List.length roomLayout then
                 return! Error DoublePlacement
         }
 
@@ -84,10 +84,10 @@ let validateRoomLayout (room: Room) appliances : Result<unit, PlacementValidatio
 
     result {
         // Check if all appliances have valid overhead settings
-        do! List.traverseResultM validateApplianceOverhead appliances |> Result.ignore
+        do! List.traverseResultM validateApplianceOverhead roomLayout |> Result.ignore
 
         let groundAppliances, overheadAppliances =
-            List.partition (_.coordinate >> _.overhead) appliances
+            List.partition (_.coordinate >> _.overhead) roomLayout
 
         // Check for double placement on the ground and overhead
         do! checkForDoublePlacement groundAppliances
@@ -95,14 +95,14 @@ let validateRoomLayout (room: Room) appliances : Result<unit, PlacementValidatio
 
         // Check if all appliances are within the room bounds
         do!
-            appliances
+            roomLayout
             |> List.map (fun a -> a.coordinate)
             |> List.traverseResultM (validateCoordinate room)
             |> Result.ignore
 
         // Check if all growboxes have enough space
         do!
-            appliances
+            roomLayout
             |> List.choose (function
                 | {
                       applianceType = Growbox growbox
@@ -139,14 +139,14 @@ let calculateTileDistance (a: Coordinate) (b: Coordinate) : uint8<Tile> =
     let yDiff = if a.y > b.y then a.y - b.y else b.y - a.y
     xDiff + yDiff |> (*) 1uy<Tile>
 
-let calculateMeasurements (room: Room) appliances =
+let calculateMeasurements (room: Room) roomLayout =
     let measurementMap =
         let width = room.width |> int
         let height = room.height |> int
         Array2D.create<Measurements> width height defaultMeasurements
 
     let emitters =
-        appliances
+        roomLayout
         |> List.choose (function
             | {
                   applianceType = Emitter emitter
@@ -207,7 +207,7 @@ let calculateMeasurements (room: Room) appliances =
 
     measurementMap
 
-let validateGrowboxNeeds appliances (measurements: Measurements[,]) =
+let validateGrowboxNeeds roomLayout (measurements: Measurements[,]) =
     let checkGrowbox (growbox: Growbox) (coordinate: Coordinate) =
         result {
             let minMeasurements = growbox.growboxType.minMeasurements
@@ -239,7 +239,7 @@ let validateGrowboxNeeds appliances (measurements: Measurements[,]) =
                 return! InvalidWater(coordinate, measurement.water) |> Error
         }
 
-    appliances
+    roomLayout
     |> List.choose (function
         | {
               applianceType = Growbox growbox
@@ -249,17 +249,12 @@ let validateGrowboxNeeds appliances (measurements: Measurements[,]) =
     |> List.traverseResultA (fun (growbox, coordinate) -> checkGrowbox growbox coordinate)
     |> Result.ignore
 
-/// Helper function which validates a list of appliances instead of a set to make this more efficient
-/// in a scenario where we have to validate a lot
-let validateList room appliances =
+let validate room (roomLayout: RoomLayout) =
     result {
-        do! validateRoomLayout room appliances |> Result.mapError Placement
-        let measurements = calculateMeasurements room appliances
+        do! validateRoomLayout room roomLayout |> Result.mapError Placement
+        let measurements = calculateMeasurements room roomLayout
 
         do!
-            validateGrowboxNeeds appliances measurements
+            validateGrowboxNeeds roomLayout measurements
             |> Result.mapError GrowboxNeedsNotMet
     }
-
-let validate room (roomLayout: RoomLayout) =
-    Set.toList roomLayout |> validateList room

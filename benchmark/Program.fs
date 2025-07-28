@@ -55,17 +55,15 @@ type OptimizationBenchmark() =
             }
     ]
 
-    let simpleRoomLayout =
-        [
-            for appliance in simpleTileLayout do
-                for y in 0uy .. 5uy .. 5uy do
-                    for x in 0uy .. 5uy .. 10uy do
-                        yield
-                            appliance
-                            |> Optic.map ApplianceOptic.x ((+) x)
-                            |> Optic.map ApplianceOptic.y ((+) y)
-        ]
-        |> Set.ofList
+    let simpleRoomLayout = [
+        for appliance in simpleTileLayout do
+            for y in 0uy .. 5uy .. 5uy do
+                for x in 0uy .. 5uy .. 10uy do
+                    yield
+                        appliance
+                        |> Optic.map ApplianceOptic.x ((+) x)
+                        |> Optic.map ApplianceOptic.y ((+) y)
+    ]
 
     [<Benchmark>]
     member _.CalculateScoreTier1() = calculateScoreTier1 simpleRoomLayout

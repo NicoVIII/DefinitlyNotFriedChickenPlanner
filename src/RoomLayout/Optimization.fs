@@ -28,10 +28,8 @@ let optimizeEmitterCost strategy (room: Room) (roomLayout: RoomLayout) : RoomLay
         let overheadBit = if coord.overhead then 1u <<< 16 else 0u
         xBits + yBits + overheadBit
 
-    let appliances = roomLayout |> Set.toList
-
     let emitterMapData =
-        appliances
+        roomLayout
         |> List.choose (function
             | { applianceType = Emitter _ } as emitter ->
                 (coordinateToKey emitter.coordinate, emitter) |> KeyValuePair |> Some
@@ -42,7 +40,7 @@ let optimizeEmitterCost strategy (room: Room) (roomLayout: RoomLayout) : RoomLay
     let experimentalEmitterMap = new Dictionary<uint, Appliance>(validEmitterMap)
 
     let rest =
-        appliances
+        roomLayout
         |> List.filter (function
             | { applianceType = Emitter _ } -> false
             | _ -> true)
@@ -83,7 +81,7 @@ let optimizeEmitterCost strategy (room: Room) (roomLayout: RoomLayout) : RoomLay
             performChange key experimentalEmitterMap
 
             // We check if the change is valid
-            if getRoomLayout experimentalEmitterMap |> validateList room |> Result.isOk then
+            if getRoomLayout experimentalEmitterMap |> validate room |> Result.isOk then
                 let remainingKeys =
                     match strategy with
                     | HighestFirst ->
@@ -107,4 +105,4 @@ let optimizeEmitterCost strategy (room: Room) (roomLayout: RoomLayout) : RoomLay
                 optimize (List.filter ((<>) key) remainingKeys)
 
     optimize (validEmitterMap.Keys |> Seq.toList)
-    getRoomLayout validEmitterMap |> Set.ofList
+    getRoomLayout validEmitterMap

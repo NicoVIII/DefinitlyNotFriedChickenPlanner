@@ -24,7 +24,7 @@ let printMeasurements (measurements: Measurements[,]) =
 let printRoomLayout (room: Room) (roomLayout: RoomLayout) =
     let printGrid overhead (roomLayout: RoomLayout) =
         for coord in Room.generateCoords overhead room do
-            match roomLayout |> Set.toList |> List.tryFind (fun a -> a.coordinate = coord) with
+            match roomLayout |> List.tryFind (fun a -> a.coordinate = coord) with
             | Some appliance ->
                 match appliance.applianceType with
                 | Emitter emitter ->
@@ -47,7 +47,7 @@ let printRoomLayout (room: Room) (roomLayout: RoomLayout) =
         printfn ""
 
     printfn "Overhead:"
-    roomLayout |> Set.filter (_.coordinate >> _.overhead) |> printGrid true
+    roomLayout |> List.filter (_.coordinate >> _.overhead) |> printGrid true
 
     printfn "Ground:"
-    roomLayout |> Set.filter (_.coordinate >> _.overhead >> not) |> printGrid false
+    roomLayout |> List.filter (_.coordinate >> _.overhead >> not) |> printGrid false

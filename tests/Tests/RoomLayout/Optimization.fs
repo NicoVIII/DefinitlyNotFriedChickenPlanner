@@ -13,13 +13,12 @@ let tests =
         testCase "removes all emitters, if there are no growboxes"
         <| fun _ ->
             // Arrange
-            let layout =
-                Set.ofList [
-                    buildHeater { overhead = false; x = 0uy; y = 0uy }
-                    buildHumidifier { overhead = false; x = 1uy; y = 0uy }
-                    buildSprinkler { overhead = false; x = 2uy; y = 0uy }
-                    buildLight { overhead = true; x = 1uy; y = 1uy }
-                ]
+            let layout = [
+                buildHeater { overhead = false; x = 0uy; y = 0uy }
+                buildHumidifier { overhead = false; x = 1uy; y = 0uy }
+                buildSprinkler { overhead = false; x = 2uy; y = 0uy }
+                buildLight { overhead = true; x = 1uy; y = 1uy }
+            ]
 
             // Act
             let optimized = optimizeEmitterCost HighestFirst sampleRoom layout
@@ -30,12 +29,11 @@ let tests =
         testCase "reduces emitters when growboxes are present"
         <| fun _ ->
             // Arrange
-            let layout =
-                Set.ofList [
-                    buildLight { overhead = true; x = 1uy; y = 1uy }
-                    buildGrowbox East { overhead = false; x = 1uy; y = 1uy }
-                    buildSprinkler { overhead = false; x = 1uy; y = 0uy }
-                ]
+            let layout = [
+                buildLight { overhead = true; x = 1uy; y = 1uy }
+                buildGrowbox East { overhead = false; x = 1uy; y = 1uy }
+                buildSprinkler { overhead = false; x = 1uy; y = 0uy }
+            ]
 
             // Act
             let optimized = optimizeEmitterCost HighestFirst sampleRoom layout

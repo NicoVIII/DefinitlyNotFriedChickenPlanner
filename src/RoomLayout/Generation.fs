@@ -101,14 +101,14 @@ let generateOverheadAppliances (random: Random) (config: GenerationConfig) (room
     appliances |> Seq.toList
 
 let generateRoomLayout (random: Random) (room: Room) (config: GenerationConfig) : RoomLayout =
-    let roomLayoutList = [
+    let roomLayout = [
         yield! generateGroundAppliances random config room
         yield! generateOverheadAppliances random config room
     ]
 #if DEBUG
     // Debug: Check, if appliances are still valid
-    match validateRoomLayout room roomLayoutList with
+    match validateRoomLayout room roomLayout with
     | Ok() -> ()
     | Error error -> printfn "[DEBUG] Generated invalid room with error: %A" error
 #endif
-    Set.ofList roomLayoutList
+    roomLayout

@@ -6,11 +6,10 @@ open DefinitlyNotFriedChickenPlanner.Helper
 open Microsoft.FSharp.Core.Operators.Checked
 
 let countGrowboxes (roomLayout: RoomLayout) : int =
-    roomLayout |> Set.filter (fun a -> a.applianceType.IsGrowbox) |> Set.count
+    roomLayout |> List.filter (fun a -> a.applianceType.IsGrowbox) |> List.length
 
 let calculateHourlyCost (roomLayout: RoomLayout) =
     roomLayout
-    |> Set.toList
     |> List.choose (function
         | { applianceType = Emitter emitter } -> Some emitter
         | _ -> None)

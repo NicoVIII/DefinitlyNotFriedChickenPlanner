@@ -32,4 +32,4 @@ type Appliance = {
     coordinate: Coordinate
 }
 
-type RoomLayout = Set<Appliance>
+type RoomLayout = Appliance list
