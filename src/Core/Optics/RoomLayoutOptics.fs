@@ -23,9 +23,9 @@ module EmitterOptic =
     let light =
         Prism(
             (function
-            | Light l -> Some l
+            | Lamp l -> Some l
             | _ -> None),
-            (fun _ v -> Light v)
+            (fun _ v -> Lamp v)
         )
 
     let sprinkler =
@@ -41,13 +41,13 @@ module EmitterOptic =
             (function
             | Heater h -> h / 1y<Heat>
             | Humidifier h -> h / 1y<Humidity>
-            | Light l -> l / 1y<Light>
+            | Lamp l -> l / 1y<Light>
             | Sprinkler w -> w / 1y<Water>),
             (fun e v ->
                 match e with
                 | Heater _ -> v * 1y<Heat> |> Heater
                 | Humidifier _ -> v * 1y<Humidity> |> Humidifier
-                | Light _ -> v * 1y<Light> |> Light
+                | Lamp _ -> v * 1y<Light> |> Lamp
                 | Sprinkler _ -> v * 1y<Water> |> Sprinkler)
         )
 
@@ -81,5 +81,9 @@ module ApplianceOptic =
     let y = Optic.compose coordinate CoordinateOptic.y
     let overhead = Optic.compose coordinate CoordinateOptic.overhead
     let emitter = Optic.compose applianceType ApplianceTypeOptic.emitter
+    let heater = Optic.compose emitter EmitterOptic.heater
+    let humidifier = Optic.compose emitter EmitterOptic.humidifier
+    let light = Optic.compose emitter EmitterOptic.light
+    let sprinkler = Optic.compose emitter EmitterOptic.sprinkler
     let growbox = Optic.compose applianceType ApplianceTypeOptic.growbox
     let emitterValue = Optic.compose applianceType ApplianceTypeOptic.emitterValue

@@ -41,7 +41,7 @@ type OptimizationBenchmark() =
         }
         for coord in lightCoordinates do
             {
-                applianceType = Emitter(Light 90y<Light>)
+                applianceType = Emitter(Lamp 90y<Light>)
                 coordinate = coord
             }
         for coord in growboxCoordinates do

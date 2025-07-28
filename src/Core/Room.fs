@@ -1,5 +1,11 @@
 namespace DefinitlyNotFriedChickenPlanner
 
+type Measure =
+    | Heat
+    | Humidity
+    | Light
+    | Water
+
 type Measurements = {
     heat: int8<Heat>
     humidity: int8<Humidity>

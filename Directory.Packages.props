@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.2" />
     <PackageVersion Include="Expecto" Version="10.2.3" />
+    <PackageVersion Include="Expecto.FsCheck" Version="10.2.3" />
     <PackageVersion Include="FsToolkit.ErrorHandling" Version="5.0.1" />
     <PackageVersion Include="NicoVIII.RunHelpers" Version="1.0.0" />
     <PackageVersion Include="NicoVIII.SimpleOptics" Version="1.0.0" />

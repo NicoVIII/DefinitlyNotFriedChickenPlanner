@@ -45,7 +45,7 @@ let tests =
                 optimized
                 (fun a ->
                     match a.applianceType with
-                    | Emitter(Light 50y<Light>) -> true
+                    | Emitter(Lamp 50y<Light>) -> true
                     | _ -> false)
                 "Optimized layout should contain a light with value 50"
 

@@ -1,6 +1,7 @@
 module DefinitlyNotFriedChickenPlanner.Tests.RoomLayout.Validation
 
 open Expecto
+open FsToolkit.ErrorHandling
 
 open DefinitlyNotFriedChickenPlanner
 open DefinitlyNotFriedChickenPlanner.RoomLayout.Generation
@@ -279,5 +280,24 @@ let tests =
                     result
                     (GrowboxAdjacentTileNeeded |> Placement |> Error)
                     "Expected InvalidGrowboxPlacement error"
+
+            ptestProperty "returns the same result, if I do it one by one or all at once"
+            <| fun (layout: RoomLayout) ->
+                // Arrange
+                let room = { width = 3uy; height = 3uy }
+
+                // Act
+                let resultAllAtOnce = validateMeasures room layout
+
+                let resultOneByOne =
+                    result {
+                        do! validateMeasure Measure.Heat room layout
+                        do! validateMeasure Measure.Humidity room layout
+                        do! validateMeasure Measure.Light room layout
+                        do! validateMeasure Measure.Water room layout
+                    }
+
+                // Assert
+                Expect.equal resultAllAtOnce resultOneByOne "Expected same result for both validation methods"
         ]
     ]

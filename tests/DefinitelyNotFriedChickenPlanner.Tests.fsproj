@@ -10,6 +10,8 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Expecto" />
+    <PackageReference Include="Expecto.FsCheck" />
+    <PackageReference Include="FsToolkit.ErrorHandling" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\src\DefinitelyNotFriedChickenPlanner.fsproj" />

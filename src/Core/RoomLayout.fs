@@ -10,7 +10,7 @@ type Orientation =
 type Emitter =
     | Heater of int8<Heat>
     | Humidifier of int8<Humidity>
-    | Light of int8<Light>
+    | Lamp of int8<Light>
     | Sprinkler of int8<Water>
 
 type GrowboxType = {

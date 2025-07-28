@@ -3,6 +3,7 @@ module DefinitlyNotFriedChickenPlanner.RoomLayout.Validation
 
 open FsToolkit.ErrorHandling
 open Microsoft.FSharp.Core.Operators.Checked
+open SimpleOptics
 
 open DefinitlyNotFriedChickenPlanner
 open DefinitlyNotFriedChickenPlanner.Helper
@@ -55,7 +56,7 @@ let validateApplianceOverhead appliance =
         | Emitter(Heater _), false
         | Emitter(Humidifier _), false
         | Emitter(Sprinkler _), false
-        | Emitter(Light _), true -> ()
+        | Emitter(Lamp _), true -> ()
         | _ -> return! Error InvalidOverheadSetting
     }
 
@@ -139,6 +140,33 @@ let calculateTileDistance (a: Coordinate) (b: Coordinate) : uint8<Tile> =
     let yDiff = if a.y > b.y then a.y - b.y else b.y - a.y
     xDiff + yDiff |> (*) 1uy<Tile>
 
+let calculateMeasure
+    room
+    roomLayout
+    (measurePrism: Prism<Appliance, int8<'a>>)
+    (maxMeasure: int16<'a>)
+    (reduction: int16<'a / Tile>)
+    =
+    let measurementMap =
+        let width = room.width |> int
+        let height = room.height |> int
+        Array2D.create<int8<'a>> width height 0y<_>
+
+    let emitters =
+        roomLayout
+        |> List.choose (fun appliance ->
+            Optic.get measurePrism appliance
+            |> Option.map (fun heater -> heater, appliance.coordinate))
+
+    for emitterValue, emitterCoord in emitters do
+        for coord in Room.generateCoords false room do
+            let x, y = int coord.x, int coord.y
+            let distance = calculateTileDistance emitterCoord coord |> uint8Toint16
+            let adjustment = int8ToInt16 emitterValue - distance * reduction |> max 0s<_>
+            measurementMap.[x, y] <- int8ToInt16 measurementMap.[x, y] + adjustment |> min maxMeasure |> int16ToInt8
+
+    measurementMap
+
 let calculateMeasurements (room: Room) roomLayout =
     let measurementMap =
         let width = room.width |> int
@@ -182,7 +210,7 @@ let calculateMeasurements (room: Room) roomLayout =
                             |> min 100s<Humidity>
                             |> int16ToInt8
                 }
-            | Light intensity ->
+            | Lamp intensity ->
                 let adjustment =
                     int8ToInt16 intensity - distance * Config.light.reduction |> max 0s<Light>
 
@@ -206,6 +234,27 @@ let calculateMeasurements (room: Room) roomLayout =
                 }
 
     measurementMap
+
+let validateGrowboxNeedsForMeasure roomLayout getValue error (measurements: int8<'a>[,]) =
+    let checkGrowbox (growbox: Growbox) (coordinate: Coordinate) =
+        result {
+            let minMeasurement = getValue growbox.growboxType.minMeasurements
+            let maxMeasurement = getValue growbox.growboxType.maxMeasurements
+            let measurement = measurements.[int coordinate.x, int coordinate.y]
+
+            if measurement < minMeasurement || measurement > maxMeasurement then
+                return! error (coordinate, measurement) |> Error
+        }
+
+    roomLayout
+    |> List.choose (function
+        | {
+              applianceType = Growbox growbox
+              coordinate = coordinate
+          } -> Some(growbox, coordinate)
+        | _ -> None)
+    |> List.traverseResultA (fun (growbox, coordinate) -> checkGrowbox growbox coordinate)
+    |> Result.ignore
 
 let validateGrowboxNeeds roomLayout (measurements: Measurements[,]) =
     let checkGrowbox (growbox: Growbox) (coordinate: Coordinate) =
@@ -249,12 +298,46 @@ let validateGrowboxNeeds roomLayout (measurements: Measurements[,]) =
     |> List.traverseResultA (fun (growbox, coordinate) -> checkGrowbox growbox coordinate)
     |> Result.ignore
 
+let validateMeasure measure room roomLayout =
+    match measure with
+    | Heat ->
+        let measurePrism = ApplianceOptic.heater
+        let maxMeasure = Config.heat.max
+        let reduction = Config.heat.reduction
+        let getValue = fun measurement -> measurement.heat
+
+        calculateMeasure room roomLayout measurePrism maxMeasure reduction
+        |> validateGrowboxNeedsForMeasure roomLayout getValue InvalidHeat
+    | Humidity ->
+        let measurePrism = ApplianceOptic.humidifier
+        let maxMeasure = Config.humidity.max
+        let reduction = Config.humidity.reduction
+        let getValue = fun measurement -> measurement.humidity
+
+        calculateMeasure room roomLayout measurePrism maxMeasure reduction
+        |> validateGrowboxNeedsForMeasure roomLayout getValue InvalidHumidity
+    | Measure.Light ->
+        let measurePrism = ApplianceOptic.light
+        let maxMeasure = Config.light.max
+        let reduction = Config.light.reduction
+        let getValue = fun measurement -> measurement.light
+
+        calculateMeasure room roomLayout measurePrism maxMeasure reduction
+        |> validateGrowboxNeedsForMeasure roomLayout getValue InvalidLight
+    | Water ->
+        let measurePrism = ApplianceOptic.sprinkler
+        let maxMeasure = Config.water.max
+        let reduction = Config.water.reduction
+        let getValue = fun measurement -> measurement.water
+
+        calculateMeasure room roomLayout measurePrism maxMeasure reduction
+        |> validateGrowboxNeedsForMeasure roomLayout getValue InvalidWater
+
+let validateMeasures room roomLayout =
+    calculateMeasurements room roomLayout |> validateGrowboxNeeds roomLayout
+
 let validate room (roomLayout: RoomLayout) =
     result {
         do! validateRoomLayout room roomLayout |> Result.mapError Placement
-        let measurements = calculateMeasurements room roomLayout
-
-        do!
-            validateGrowboxNeeds roomLayout measurements
-            |> Result.mapError GrowboxNeedsNotMet
+        do! validateMeasures room roomLayout |> Result.mapError GrowboxNeedsNotMet
     }

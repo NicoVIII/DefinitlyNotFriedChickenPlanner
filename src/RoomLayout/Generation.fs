@@ -24,7 +24,7 @@ let buildSprinkler (coord: Coordinate) = {
 }
 
 let buildLight (coord: Coordinate) = {
-    applianceType = Emitter(Light 90y<Light>)
+    applianceType = Emitter(Lamp 90y<Light>)
     coordinate = coord
 }
 

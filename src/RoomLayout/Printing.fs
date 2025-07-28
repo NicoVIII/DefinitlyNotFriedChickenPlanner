@@ -31,7 +31,7 @@ let printRoomLayout (room: Room) (roomLayout: RoomLayout) =
                     match emitter with
                     | Heater value -> printf "%3i%s " value "H"
                     | Humidifier value -> printf "%3i%s " value "U"
-                    | Light value -> printf "%3i%s " value "L"
+                    | Lamp value -> printf "%3i%s " value "L"
                     | Sprinkler value -> printf "%3i%s " value "S"
                 | Growbox growbox ->
                     match growbox.orientation with

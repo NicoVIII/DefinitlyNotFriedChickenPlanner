@@ -17,7 +17,7 @@ let calculateHourlyCost (roomLayout: RoomLayout) =
         match emitter with
         | Heater value -> Config.heat.cost * int8ToDouble value
         | Humidifier value -> Config.humidity.cost * int8ToDouble value
-        | Light value -> Config.light.cost * int8ToDouble value
+        | Lamp value -> Config.light.cost * int8ToDouble value
         | Sprinkler value -> Config.water.cost * int8ToDouble value)
 
 let calculateScoreTier1 roomLayout =
