@@ -72,21 +72,14 @@ let optimizeEmitterCost strategy (room: Room) (roomLayout: RoomLayout) : RoomLay
 
             // We check if the change is valid
             if getRoomLayout experimentalEmitterMap |> validate room |> Result.isOk then
+                // Valid reduction, save it and use all remaining keys
                 let remainingKeys =
-                    match strategy with
-                    | HighestFirst ->
-                        // Restart with all keys
-                        Map.keys experimentalEmitterMap |> Seq.toList
-                    | LowestFirst ->
-                        // If we are in LowestFirst mode, we potentially know the lowest key
-                        // If it is still in the map, it is the current one
-                        if Map.containsKey key experimentalEmitterMap then
-                            [ key ]
-                        else
-                            // If it is not in the map, we reset the remaining keys
-                            Map.keys experimentalEmitterMap |> Seq.toList
+                    if Map.count experimentalEmitterMap < Map.count validEmitterMap then
+                        // If we removed the current key, we can remove it from the remaining keys
+                        List.filter ((<>) key) remainingKeys
+                    else
+                        remainingKeys
 
-                // Valid reduction, save it
                 performChange key validEmitterMap |> optimize remainingKeys
             else
                 // Remove this key and try others
